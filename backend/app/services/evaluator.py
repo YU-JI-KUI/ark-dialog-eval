@@ -36,6 +36,37 @@ def _dispatch_correct(sample: dict, judge: dict) -> bool | None:
     return bool(judge["should_dispatch_to_bu"]) == bool(sample.get("dispatched_to_bu"))
 
 
+# 非业务分类的占位值:模型对"不该本BU承接"的样本填这些,不算真实业务分类,
+# 统计切片时归为空(落到「(未分类)」),不污染各业务类型的解决率。
+_NON_BUSINESS_TYPES = {"非本BU", "拒识", "其他", ""}
+
+
+def _business_type(judge: dict) -> str:
+    """取模型返回的业务分类标签(字段名 business_type)。非业务分类占位值归空。"""
+    if not isinstance(judge, dict):
+        return ""
+    bt = (judge.get("business_type") or "").strip()
+    return "" if bt in _NON_BUSINESS_TYPES else bt
+
+
+def _dispatch_scene(sample: dict, judge: dict) -> str:
+    """按四象限给 BU 分发结果打场景标签(用 AI 判断 vs Excel 实际两个原始事实)。
+
+    should=AI 认为该不该本BU承接;actual=Excel 实际是否分给本BU。
+      正常    : should==actual(都该且分了 / 都不该且没分)
+      该拒未拒: 不该本BU接,却被分进来了(should=F, actual=T)
+      该分未分: 该本BU接,却没分进来(should=T, actual=F)
+    judge 出错/缺字段返回空串(不参与统计)。
+    """
+    if not isinstance(judge, dict) or "_error" in judge or "should_dispatch_to_bu" not in judge:
+        return ""
+    should = bool(judge["should_dispatch_to_bu"])
+    actual = bool(sample.get("dispatched_to_bu"))
+    if should == actual:
+        return "正常"
+    return "该拒未拒" if (actual and not should) else "该分未分"
+
+
 def assemble_row(sample: dict, judge: dict) -> dict:
     """把一条样本 + judge 输出组装成明细行(抽出复用,供续跑场景也能调)。"""
     gold = sample["gold"]
@@ -53,8 +84,9 @@ def assemble_row(sample: dict, judge: dict) -> dict:
         "dispatched_to_bu": sample.get("dispatched_to_bu", False),
         "answer_text": sample["answer_text"],
         "judge": judge,
-        "j_intent": judge.get("intent_pred", "") if isinstance(judge, dict) else "",
+        "j_intent": _business_type(judge),
         "dispatch_correct": dispatch_correct,
+        "dispatch_scene": _dispatch_scene(sample, judge),  # 正常/该拒未拒/该分未分
         "j_dispatch": j_dispatch,
         "j_resolved": j_resolved,
         "j_resolved_raw": judge.get("answer_resolved", "") if isinstance(judge, dict) else "",

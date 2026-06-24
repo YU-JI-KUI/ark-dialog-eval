@@ -5,7 +5,46 @@ import pandas as pd
 from app.core.bu.securities import SECURITIES as SEC
 from app.core.eval.advisor import rule_based_advice
 from app.core.eval.pipeline import detect_gold, resolve_columns
-from app.services.evaluator import _bu_dispatch_stats, compute_insights
+from app.services.evaluator import _bu_dispatch_stats, assemble_row, compute_insights
+
+
+def _sample(**kw):
+    base = {
+        "row_index": 0, "session": "s1", "turn": 1, "question": "q",
+        "context": [], "next_user_turn": "", "dispatched_intent": "",
+        "dispatched_to_bu": True, "answer_text": "a",
+        "gold": {"dispatch": "", "resolved": ""},
+    }
+    base.update(kw)
+    return base
+
+
+def test_assemble_row_reads_business_type():
+    # 回归:assemble_row 必须读模型返回的 business_type(曾误读 intent_pred 导致全空)
+    judge = {"should_dispatch_to_bu": True, "business_type": "交易", "answer_resolved": "yes"}
+    row = assemble_row(_sample(), judge)
+    assert row["j_intent"] == "交易"
+
+
+def test_assemble_row_non_business_type_to_empty():
+    # "非本BU"/"拒识" 等占位值不算真实业务分类,归空(落到「(未分类)」切片)
+    for placeholder in ("非本BU", "拒识", "其他", ""):
+        judge = {"should_dispatch_to_bu": False, "business_type": placeholder}
+        assert assemble_row(_sample(), judge)["j_intent"] == ""
+
+
+def test_dispatch_scene_four_quadrants():
+    # 四象限:should(AI判该接) × actual(Excel实际分给本BU)
+    cases = [
+        (True, True, "正常"),       # 都该且分了
+        (False, False, "正常"),     # 都不该且没分(用户反例:AI也认为不是证券→不算漏收)
+        (False, True, "该拒未拒"),   # 不该接却被分进来(误收)
+        (True, False, "该分未分"),   # 该接却没分进来(漏收)
+    ]
+    for should, actual, expect in cases:
+        judge = {"should_dispatch_to_bu": should}
+        row = assemble_row(_sample(dispatched_to_bu=actual), judge)
+        assert row["dispatch_scene"] == expect, f"{should},{actual} 应为 {expect}"
 
 
 def _df(with_gold: bool):

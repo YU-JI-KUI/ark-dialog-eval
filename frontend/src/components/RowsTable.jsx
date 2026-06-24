@@ -80,8 +80,8 @@ export default function RowsTable({ rows }) {
               <th className="px-4 py-3 font-medium">会话 / 轮次</th>
               <th className="px-4 py-3 font-medium">客户问题</th>
               <th className="px-4 py-3 font-medium">Judge 业务分类</th>
-              <th className="px-4 py-3 font-medium">分发 (判/金)</th>
-              <th className="px-4 py-3 font-medium">解决 (判/金)</th>
+              <th className="px-4 py-3 font-medium">分发 (场景)</th>
+              <th className="px-4 py-3 font-medium">解决 (AI/人工)</th>
               <th className="px-4 py-3 font-medium"></th>
             </tr>
           </thead>
@@ -106,7 +106,7 @@ export default function RowsTable({ rows }) {
                   <Badge tone="brand">{r.j_intent || '—'}</Badge>
                 </td>
                 <td className="px-4 py-3">
-                  <PredGold pred={r.j_dispatch} gold={r.gold?.dispatch} disagree={r.disagree_dispatch} />
+                  <SceneBadge scene={r.dispatch_scene} />
                 </td>
                 <td className="px-4 py-3">
                   <PredGold pred={r.j_resolved} gold={r.gold?.resolved} disagree={r.disagree_resolved} />
@@ -155,6 +155,21 @@ export default function RowsTable({ rows }) {
 
       <DetailDrawer row={active} onClose={() => setActive(null)} />
     </div>
+  )
+}
+
+// BU 分发场景标签:正常 / 该拒未拒(误收) / 该分未分(漏收)
+const SCENE_TONE = {
+  正常: 'text-good-400 bg-good-500/10 border-good-500/30',
+  该拒未拒: 'text-bad-400 bg-bad-500/10 border-bad-500/30',
+  该分未分: 'text-warn-400 bg-warn-500/10 border-warn-500/30',
+}
+function SceneBadge({ scene }) {
+  if (!scene) return <span className="text-xs text-slate-600">—</span>
+  return (
+    <span className={clsx('inline-flex rounded-md border px-2 py-0.5 text-xs font-medium', SCENE_TONE[scene] || 'text-slate-400 border-line')}>
+      {scene}
+    </span>
   )
 }
 

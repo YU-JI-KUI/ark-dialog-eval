@@ -14,8 +14,21 @@ judge_fn 解耦。
 from __future__ import annotations
 
 import json
+from functools import lru_cache
+from pathlib import Path
 
 from app.core.bu.base import BUConfig
+
+PROMPTS_DIR = Path(__file__).resolve().parent / "prompts"
+
+
+@lru_cache(maxsize=4)
+def _load_prompt(name: str) -> str:
+    """读提示词模板文件(缓存,改文件后需重启生效)。
+
+    判定规则与系统人设外置到 prompts/*.txt,内网可直接改文件、不动代码。
+    """
+    return (PROMPTS_DIR / name).read_text(encoding="utf-8")
 
 # Judge 必须输出的字段及其含义(也作为 prompt 里给模型的输出契约)。
 # 新口径:BU 分发漏斗。分发对错由代码算(should_dispatch_to_bu vs 日志分发BU),
@@ -55,34 +68,28 @@ def build_messages(sample: dict, bu: BUConfig) -> list[dict]:
         if ai:
             ctx_lines.append(f"         AI答:{ai}")
     ctx = "\n".join(ctx_lines) or "    (无前文,这是首轮)"
-    user = f"""【业务分类清单】
-{intents}
-
-【本轮对话】
-  用户问题:{sample['question']}
-  多轮上下文(含前文 AI 回答,当前问题若含"第二个/那个/换一个"等指代,回看上一轮 AI 答确定指向):
-{ctx}
-  系统实际分发到的业务/模块:{sample.get('dispatched_intent', '(未知)')}
-  系统分发理由:{sample.get('dispatch_reason', '(无)')}
-  AI回答(原始内容,可能是 JSON 渲染卡 / 含 HTML 标签 / 多层嵌套,请自行读懂其中对用户可见的语义,忽略标签和无关字段):
-  {sample.get('answer_text', '(空)')}
-  紧接着用户的下一轮(仅用于评"是否解决",禁止用于判意图/分发):{sample.get('next_user_turn') or '(无/会话结束)'}
-
-  日志是否已把本条分给本BU:{'是(进入解决度评测)' if sample.get('dispatched_to_bu') else '否(拒识/分给他BU,不评解决度)'}
-
-【任务】
-1. should_dispatch_to_bu:这个问题**该不该由本BU承接**?与本BU业务相关→true(该承接);与本BU无关(他业务/闲聊/拒识)→false(该拒识)。
-   ★只依据"当前问题+多轮上下文(前文)",绝不能用"下一轮"反推(agent 当时还不知道用户下一轮会说什么)。在 dispatch_reason 写依据。
-2. business_type:从业务分类清单里给问题打一个业务分类标签(仅用于切片统计,不评分类对错)。该拒识的填"非本BU"。
-3. answer_resolved:**仅当上面"日志是否已把本条分给本BU=是"时才评**;否则一律填 unknown,resolved_reason 写"非本BU承接,不评解决度"。
-   评时只看不依赖业务事实的维度:相关性/完整性/下游轨迹(用户下一轮重问/不满→倾向 no/partial)。"下一轮"只在这里用。没解决在 unresolved_cause 归类原因。
-4. factual_*:无知识库,factual_verifiable=false、factual_correct=null,绝不瞎判业务事实。
-5. needs_human_review:置信低/需核事实/疑似合规/你不确定 → true。
-
-只输出如下JSON,无任何多余文字:
-{json.dumps(OUTPUT_SCHEMA, ensure_ascii=False, indent=2)}"""
+    # 从外置模板填空(用 replace 而非 format,避免与模板内 JSON 的花括号冲突)
+    fields = {
+        "{intents}": intents,
+        "{question}": str(sample["question"]),
+        "{ctx}": ctx,
+        "{dispatched_intent}": str(sample.get("dispatched_intent", "(未知)")),
+        "{dispatch_reason}": str(sample.get("dispatch_reason", "(无)")),
+        "{answer_text}": str(sample.get("answer_text", "(空)")),
+        "{next_user_turn}": str(sample.get("next_user_turn") or "(无/会话结束)"),
+        "{dispatched_flag}": (
+            "是(进入解决度评测)" if sample.get("dispatched_to_bu")
+            else "否(拒识/分给他BU,不评解决度)"
+        ),
+        "{output_schema}": json.dumps(OUTPUT_SCHEMA, ensure_ascii=False, indent=2),
+    }
+    user = _load_prompt("judge_user.txt")
+    for k, v in fields.items():
+        user = user.replace(k, v)
+    # system 优先用 BU 自带人设(证券/寿险不同),BU 未配则回退到外置默认人设
+    system = bu.judge_persona or _load_prompt("judge_system.txt")
     return [
-        {"role": "system", "content": bu.judge_persona},
+        {"role": "system", "content": system},
         {"role": "user", "content": user},
     ]
 
