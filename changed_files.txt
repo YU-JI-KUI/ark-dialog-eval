@@ -1,14 +1,12 @@
 # 本次改动清单，由 sync_single.py 自动生成
 # 普通行 = 复制到内网；[DEL] 开头 = 在内网删除该文件
-# 基于 origin/master @ 533a448f
+# 基于 origin/master @ 462fd0cd
 # 涉及 commit（动作以 origin/master 为准：存在=复制、不存在=删除）:
-#   533a448f 建议解析容错 + 移除分层评测
-README.md
-backend/app/config.py
-backend/app/core/eval/advisor.py
-backend/app/core/llm/judge_runner.py
+#   462fd0cd 修复业务分类全空 + 分发场景标签 + 提示词外置
+backend/app/core/eval/judge.py
+backend/app/core/eval/prompts/judge_system.txt
+backend/app/core/eval/prompts/judge_user.txt
 backend/app/services/evaluator.py
-backend/tests/test_parse_advice.py
-frontend/src/App.jsx
-frontend/src/components/Uploader.jsx
-[DEL] backend/tests/test_tiered_judge.py
+backend/tests/test_modes_and_insights.py
+frontend/src/components/DetailDrawer.jsx
+frontend/src/components/RowsTable.jsx
