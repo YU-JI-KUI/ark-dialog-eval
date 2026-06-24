@@ -151,7 +151,6 @@ async def run_evaluation(path: str, bu: BUConfig, on_progress=None, task_id=None
         ),
         "disagreement_count": len(disagreements),
         "errors": sum(1 for r in rows if isinstance(r["judge"], dict) and "_error" in r["judge"]),
-        "tiering": _tiering_stats(rows),
     }
 
     return {
@@ -279,19 +278,6 @@ def _bu_dispatch_stats(rows: list[dict]) -> dict:
         "accuracy": round(correct / scored, 4) if scored else 0.0,
         "miss_should_accept_but_rejected": miss,
         "over_should_reject_but_accepted": over,
-    }
-
-
-def _tiering_stats(rows: list[dict]) -> dict:
-    """分层统计:快层 / 强层各处理多少,据此估算强模型调用节省比例。"""
-    fast = sum(1 for r in rows if isinstance(r["judge"], dict) and r["judge"].get("_tier") == "fast")
-    strong = sum(1 for r in rows if isinstance(r["judge"], dict) and r["judge"].get("_tier") == "strong")
-    total = len(rows)
-    return {
-        "fast": fast,
-        "strong": strong,
-        # 相比「全部走强模型」省下的比例
-        "strong_call_saved_rate": round(fast / total, 4) if total else 0.0,
     }
 
 

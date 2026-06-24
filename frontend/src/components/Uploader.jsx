@@ -9,7 +9,6 @@ const PIPELINE = [
   ['漏斗聚合', 'BU分发准确率 + 端到端解决率(按业务分类切片)'],
   ['优化建议', '基于聚合指标给针对性改进方向'],
   ['校准对齐', '有人工金标时算 准召F1 + κ + 混淆矩阵'],
-  ['置信路由', '高置信自动结案,难例进人工复核'],
 ]
 
 export default function Uploader({ onUpload, onSample, busy, bus = [] }) {

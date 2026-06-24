@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import {
   Activity, Database, Download, RotateCcw, AlertTriangle, CheckCircle2, Cpu,
-  ShieldCheck, TrendingUp, Layers, Building2,
+  ShieldCheck, TrendingUp, Building2,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { api } from './api/client'
@@ -203,16 +203,6 @@ function ResultView({ result, task }) {
           BU 分发:对 <span className="text-good-400">{s.bu_dispatch.correct}</span> /{s.bu_dispatch.scored} 条 ·
           漏收(该承接却拒识) <span className="text-warn-400">{s.bu_dispatch.miss_should_accept_but_rejected}</span> 条 ·
           误收(该拒识却承接) <span className="text-bad-400">{s.bu_dispatch.over_should_reject_but_accepted}</span> 条
-        </div>
-      )}
-
-      {/* 分层占比(走分层时) */}
-      {s.tiering && s.tiering.strong > 0 && (
-        <div className="rounded-xl border border-line bg-ink-850/60 px-5 py-3 text-sm text-slate-400">
-          <Layers size={14} className="mr-1.5 inline text-brand-400" />
-          分层评测:快层处理 <span className="text-slate-200">{s.tiering.fast}</span> 条,
-          强模型精判 <span className="text-slate-200">{s.tiering.strong}</span> 条,
-          省下 <span className="text-good-400">{pct(s.tiering.strong_call_saved_rate)}</span> 的强模型调用
         </div>
       )}
 

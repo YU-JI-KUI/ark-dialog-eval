@@ -25,13 +25,7 @@ class Settings(BaseSettings):
     # 应用
     app_name: str = "Ark 快捷服务评估平台"
     judge_backend: str = "mock"  # mock | pingan
-    judge_concurrency: int = 4   # 并发调用(强)模型的协程数
-
-    # 分层 Judge:快层(规则/mock)粗筛 + 强模型只精判难例,省成本。
-    # 仅当 backend=pingan 时生效;开启后快层先初判,只有满足 escalate 条件的
-    # 难例才升级到强模型。关闭则所有样本都直接走强模型。
-    tiered_judge: bool = True
-    escalate_confidence: float = 0.75  # 快层置信低于此 → 升级强模型
+    judge_concurrency: int = 4   # 并发调用大模型的协程数
 
     # 平安大模型平台(OpenAI 接口,双签名鉴权)
     open_ai_url: str = ""

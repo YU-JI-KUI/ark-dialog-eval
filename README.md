@@ -287,7 +287,7 @@ cd backend && uv run uvicorn app.main:app --host 0.0.0.0 --port 8848
 
 打开 `http://<本机IP>:8848`(前端由后端托管,API 同源)。
 
-> **大数据量保障**:任务逐批落盘 SQLite,跑一半中断可**断点续跑**(`POST /api/eval/tasks/{id}/resume`,跳过已完成行)。开启 `tiered_judge` 后,mock 快层先粗筛,只有难例(置信低 / 疑似分错 / 未解决 / 边界兜底意图)才升级到强模型,3 万行只有少部分走强模型,省成本。
+> **大数据量保障**:任务逐批落盘 SQLite,跑一半中断可**断点续跑**(`POST /api/eval/tasks/{id}/resume`,跳过已完成行)。所有样本一律走真实大模型精判,不做快层粗筛——要的是评测准确性,夜间用自有推理服务跑,机器空闲不算浪费。
 
 ### 6. Skill 路线的内网交付
 
@@ -320,7 +320,7 @@ ark-dialog-eval/
 │   │   │   ├── signature.py            平安双签名(RSA-SHA256 + HMAC-SHA1)
 │   │   │   ├── pingan_client.py        平安大模型客户端
 │   │   │   ├── mock_judge.py           规则桩 Judge(产 should_dispatch_to_bu 等新契约字段)
-│   │   │   └── judge_runner.py         调度入口 judge_one(分层快层/强模型)+ 建议生成
+│   │   │   └── judge_runner.py         调度入口 judge_one(mock/pingan)+ 建议生成
 │   │   ├── services/                # 任务编排
 │   │   │   ├── evaluator.py            双模式评测 + BU 分发漏斗 + 业务洞察 + 断点续跑
 │   │   │   ├── task_manager.py         任务管理(SQLite backed)
@@ -386,7 +386,7 @@ cd backend && uv run pytest -q     # 36 passed
 - **答案解析**两种 schema(活动权益卡 / FAQ 双层嵌套 + HTML)+ 容错兜底。
 - **列解析**精确匹配优先(防「答案」误命中「标准问答案」这类含子串列的串列回归)。
 - **会话重组**(context 带前文 AI 答)、**模式自动判定**(空标注列不算金标)。
-- **指标**计算与混淆矩阵方向、**Mock Judge** 规则、**分层 Judge** 升级逻辑。
+- **指标**计算与混淆矩阵方向、**Mock Judge** 规则、**建议解析容错**(模型吐脏 JSON 也能救回大部分建议)。
 - **BU 抽象**(registry / dispatch_aliases 匹配)、**业务洞察聚合**(BU 分发漏斗两类错误)、**评测逻辑契约测试**——证明「只要模型按约定格式返回,评测链路就一定算对」,与模型好坏 / 连通性无关。
 
 ---

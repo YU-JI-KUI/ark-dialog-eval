@@ -66,11 +66,70 @@ def build_advice_prompt(insights: dict, bu: BUConfig, bu_dispatch: dict | None =
 
 
 def parse_advice(text: str) -> list[dict]:
-    """解析模型返回的建议数组。容错 Markdown 围栏。"""
+    """解析模型返回的建议数组。
+
+    大模型(Qwen 等)经常不吐纯 JSON:带前言后语、未转义引号、中文逗号、尾逗号,
+    都会让整段 json.loads 直接炸。这里不假设模型语法完美,三层兜底:
+      1. 剥围栏 + 截取首个 [ 到末个 ] 之间的数组体,扔掉解释文字;
+      2. 整体解析一次(绝大多数走这条);
+      3. 整体失败,再括号配平逐个救 {...},坏的跳过,保住其余建议——
+         避免"一条坏全降级到规则"。
+    """
+    if not text:
+        return []
     fence = chr(96) * 3
     t = text.strip().replace(fence + "json", "").replace(fence, "").strip()
-    data = json.loads(t)
-    return data if isinstance(data, list) else []
+
+    # 截取数组边界,丢掉模型可能掺的前后解释文字
+    start, end = t.find("["), t.rfind("]")
+    body = t[start : end + 1] if 0 <= start < end else t
+
+    try:
+        data = json.loads(body)
+        if isinstance(data, list):
+            return [x for x in data if isinstance(x, dict)]
+    except json.JSONDecodeError:
+        pass
+
+    return _salvage_objects(body)
+
+
+def _salvage_objects(body: str) -> list[dict]:
+    """括号配平扫描,把数组里每个 {...} 单独解析,坏的跳过。
+
+    忽略字符串内的花括号(含转义),避免把 suggestion 文本里的 { 当成对象边界。
+    """
+    items: list[dict] = []
+    depth = 0
+    in_str = False
+    escape = False
+    obj_start = -1
+    for i, ch in enumerate(body):
+        if in_str:
+            if escape:
+                escape = False
+            elif ch == "\\":
+                escape = True
+            elif ch == '"':
+                in_str = False
+            continue
+        if ch == '"':
+            in_str = True
+        elif ch == "{":
+            if depth == 0:
+                obj_start = i
+            depth += 1
+        elif ch == "}":
+            depth -= 1
+            if depth == 0 and obj_start >= 0:
+                try:
+                    obj = json.loads(body[obj_start : i + 1])
+                    if isinstance(obj, dict):
+                        items.append(obj)
+                except json.JSONDecodeError:
+                    pass  # 单条坏掉跳过,保住其余
+                obj_start = -1
+    return items
 
 
 def rule_based_advice(insights: dict, bu_dispatch: dict | None = None) -> list[dict]:

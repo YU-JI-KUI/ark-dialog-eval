@@ -45,53 +45,19 @@ async def _judge_strong(sample: dict, bu: BUConfig) -> dict:
     return parse_judge_output(content)
 
 
-def _should_escalate(fast: dict) -> bool:
-    """判断快层结果是否需要升级到强模型精判。
-
-    难例 = 置信低 / 快层要求复核 / 判到边界兜底意图(其他/拒识)。
-    这些正是「容易判错、值得花强模型」的样本。
-    """
-    if not isinstance(fast, dict):
-        return True
-    if fast.get("intent_confidence", 0) < settings.escalate_confidence:
-        return True
-    if fast.get("needs_human_review"):
-        return True
-    if fast.get("intent_pred") in ("其他", "拒识"):
-        return True
-    if fast.get("answer_resolved") in ("no", "partial"):
-        return True
-    return False
-
-
 async def judge_one(sample: dict, bu: BUConfig) -> dict:
     """对单条样本跑 Judge,返回结构化结果。失败时返回带 _error 的结果。
 
-    分层策略(仅 pingan 后端 + tiered_judge 开启时):
-      快层 mock 初判 → 仅难例升级强模型;否则直接用快层结果(省成本)。
-    结果带 _tier 字段(fast/strong)用于统计节省量。
+    不分层:pingan 后端每条都走真实大模型精判(要的是准确性,不为省 token 妥协);
+    mock 后端走规则桩,仅用于本地无模型时端到端跑通。
     """
-    backend = active_backend()
     try:
-        if backend == "pingan":
-            if settings.tiered_judge:
-                fast = mock_judge(sample, bu)
-                if not _should_escalate(fast):
-                    fast["_tier"] = "fast"
-                    return fast
-                strong = await _judge_strong(sample, bu)
-                strong["_tier"] = "strong"
-                return strong
-            strong = await _judge_strong(sample, bu)
-            strong["_tier"] = "strong"
-            return strong
-        # mock 后端:全部走规则桩
-        result = mock_judge(sample, bu)
-        result["_tier"] = "fast"
-        return result
+        if active_backend() == "pingan":
+            return await _judge_strong(sample, bu)
+        return mock_judge(sample, bu)
     except Exception as e:  # 单条失败不应中断整批
         logger.error("judge 单条失败 row=%s: %s", sample.get("row_index"), e)
-        return {"_error": str(e), "needs_human_review": True, "_tier": "error"}
+        return {"_error": str(e), "needs_human_review": True}
 
 
 async def judge_batch(samples: list[dict], bu: BUConfig, on_progress=None) -> list[dict]:
