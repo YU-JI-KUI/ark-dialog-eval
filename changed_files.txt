@@ -1,39 +1,23 @@
 # 本次改动清单，由 sync_single.py 自动生成
 # 普通行 = 复制到内网；[DEL] 开头 = 在内网删除该文件
-# 基于 origin/master @ 7c894b59
+# 基于 origin/master @ 16e18135
 # 涉及 commit（动作以 origin/master 为准：存在=复制、不存在=删除）:
-#   5b5aefed 重构业务分类体系与内网启动脚本
-README.md
-backend/app/core/bu/base.py
-backend/app/core/bu/data/life.json
-backend/app/core/bu/data/securities.json
-backend/app/core/bu/life_insurance.py
-backend/app/core/bu/securities.py
-backend/app/core/eval/advisor.py
+#   16e18135 答案不解析改原文进LLM、去掉样本过滤、文案优化
+backend/app/config.py
 backend/app/core/eval/judge.py
-backend/app/core/llm/judge_runner.py
-backend/app/core/llm/mock_judge.py
+backend/app/core/eval/pipeline.py
 backend/app/services/evaluator.py
-backend/data/sample/pa_dialog_eval_sample.xlsx
-backend/data/sample/securities_dialog_calib_2000.xlsx
-backend/data/sample/securities_dialog_prod_3000.xlsx
-backend/scripts/make_large_sample.py
-backend/scripts/make_sample.py
-backend/tests/test_bu.py
-backend/tests/test_metrics_and_judge.py
-backend/tests/test_modes_and_insights.py
-frontend/src/components/AdvicePanel.jsx
+backend/tests/test_pipeline.py
+frontend/index.html
+frontend/src/App.jsx
 frontend/src/components/DetailDrawer.jsx
-frontend/src/components/InsightsPanel.jsx
-frontend/src/components/IntentCharts.jsx
-frontend/src/components/RowsTable.jsx
 frontend/src/components/Uploader.jsx
+skill/dialog-eval/README.md
 skill/dialog-eval/SKILL.md
-skill/dialog-eval/categories/life.json
-skill/dialog-eval/categories/securities.json
 skill/dialog-eval/reference/life_rubric.md
 skill/dialog-eval/reference/report_template.md
 skill/dialog-eval/reference/securities_rubric.md
-start.sh
-[DEL] backend/data/sample/pa_dialog_calib_2000.xlsx
-[DEL] backend/data/sample/pa_dialog_prod_3000.xlsx
+skill/dialog-eval/scripts/prepare.py
+[DEL] backend/app/core/eval/answer_parser.py
+[DEL] backend/tests/test_answer_parser.py
+[DEL] skill/dialog-eval/scripts/answer_parser.py
