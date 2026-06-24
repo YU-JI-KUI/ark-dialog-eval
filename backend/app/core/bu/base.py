@@ -1,0 +1,73 @@
+# -*- coding: utf-8 -*-
+"""BU(业务单元)领域知识抽象。
+
+把「证券 / 寿险 / 产险…」各自不同的领域知识封装成一个 BUConfig,流水线骨架
+(过滤→会话重组→答案解析→Judge→洞察→建议)对所有 BU 通用,只是注入不同的
+BUConfig。新增一个 BU = 加一个 BUConfig + 注册,无需改引擎。
+
+Java 类比:BUConfig 是「领域策略对象」(Strategy Pattern),引擎是上下文,
+运行时按上传选择的 BU 注入对应策略。
+"""
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+
+
+@dataclass(frozen=True)
+class BUConfig:
+    """一个 BU 的全部领域知识。"""
+
+    code: str            # 机器标识,如 "securities" / "life"
+    name: str            # 展示名,如 "证券" / "寿险"
+    description: str     # 一句话定位,用于前端/Judge 上下文
+
+    # 日志「分发BU」列里代表本 BU 的取值(可能多个,如 "证券"/"证券业务"/"PA_SEC")。
+    # 与 name(展示名)解耦:真实日志列值常和中文展示名不同。空则回退到 name。
+    dispatch_aliases: tuple = ()
+
+    # 意图体系:叶子意图 -> 定义/示例。Judge 的分类标签集。
+    intents: dict[str, str] = field(default_factory=dict)
+    # 叶子意图 -> 业务大类(用于切片统计)
+    groups: dict[str, str] = field(default_factory=dict)
+
+    # Judge 的系统角色话术(各 BU 专家身份不同)
+    judge_persona: str = "你是对话系统的评测专家,只依据给定信息客观判断,不臆测业务事实。"
+
+    # Mock 规则桩用的关键词规则(仅 mock 后端用,真实模型不需要):
+    #   mock_intent_rules: [(关键词列表, 意图), ...],顺序敏感,先具体后宽泛
+    #   mock_module_map:   承接模块名 -> 该模块负责的意图列表(宽松分发匹配)
+    mock_intent_rules: list = field(default_factory=list)
+    mock_module_map: dict = field(default_factory=dict)
+
+    # 内置样例文件名(校准集 / 生产集),供零配置体验
+    sample_calib: str = ""
+    sample_prod: str = ""
+
+    def matches_dispatch(self, raw: str) -> bool:
+        """日志「分发BU」列值是否代表本 BU(用于判断系统是否把这条分给了本 BU)。
+
+        优先用 dispatch_aliases 精确相等(最安全);未配别名时回退到 name 子串匹配
+        (兼容旧数据)。真实日志列值若不是中文展示名(如 PA_SEC),在对应 BU 的
+        dispatch_aliases 里补一个取值即可,无需改通用代码。
+        """
+        raw = (raw or "").strip()
+        if not raw:
+            return False
+        if self.dispatch_aliases:
+            return raw in self.dispatch_aliases
+        return self.name in raw  # 回退:展示名子串匹配
+
+    def group_of(self, intent: str) -> str:
+        """取某意图的业务大类,未知归「其他」。"""
+        return self.groups.get(intent, "其他")
+
+    def intent_list(self) -> list[dict]:
+        """给前端:意图标签全集(含定义与所属大类)。"""
+        return [
+            {"intent": k, "definition": v, "group": self.group_of(k)}
+            for k, v in self.intents.items()
+        ]
+
+    def intents_block(self) -> str:
+        """拼成 Judge prompt 里的意图清单文本。"""
+        return "\n".join(f"  - {k}:{v}" for k, v in self.intents.items())

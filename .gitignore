@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+*.egg-info/
+
+# 环境与凭据(绝不入库)
+.env
+
+# 运行产物
+backend/data/uploads/*
+backend/data/outputs/*
+!backend/data/uploads/.gitkeep
+!backend/data/outputs/.gitkeep
+*.db
+*.db-wal
+*.db-shm
+
+# 前端
+node_modules/
+dist/
+
+# 编辑器
+.DS_Store
+.idea/
+.vscode/
