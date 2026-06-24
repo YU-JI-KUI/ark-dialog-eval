@@ -1,23 +1,14 @@
 # 本次改动清单，由 sync_single.py 自动生成
 # 普通行 = 复制到内网；[DEL] 开头 = 在内网删除该文件
-# 基于 origin/master @ 16e18135
+# 基于 origin/master @ 533a448f
 # 涉及 commit（动作以 origin/master 为准：存在=复制、不存在=删除）:
-#   16e18135 答案不解析改原文进LLM、去掉样本过滤、文案优化
+#   533a448f 建议解析容错 + 移除分层评测
+README.md
 backend/app/config.py
-backend/app/core/eval/judge.py
-backend/app/core/eval/pipeline.py
+backend/app/core/eval/advisor.py
+backend/app/core/llm/judge_runner.py
 backend/app/services/evaluator.py
-backend/tests/test_pipeline.py
-frontend/index.html
+backend/tests/test_parse_advice.py
 frontend/src/App.jsx
-frontend/src/components/DetailDrawer.jsx
 frontend/src/components/Uploader.jsx
-skill/dialog-eval/README.md
-skill/dialog-eval/SKILL.md
-skill/dialog-eval/reference/life_rubric.md
-skill/dialog-eval/reference/report_template.md
-skill/dialog-eval/reference/securities_rubric.md
-skill/dialog-eval/scripts/prepare.py
-[DEL] backend/app/core/eval/answer_parser.py
-[DEL] backend/tests/test_answer_parser.py
-[DEL] skill/dialog-eval/scripts/answer_parser.py
+[DEL] backend/tests/test_tiered_judge.py
