@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     )
 
     # 应用
-    app_name: str = "Ark 对话评测平台"
+    app_name: str = "Ark 快捷服务评估平台"
     judge_backend: str = "mock"  # mock | pingan
     judge_concurrency: int = 4   # 并发调用(强)模型的协程数
 

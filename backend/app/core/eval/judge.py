@@ -42,7 +42,7 @@ def build_messages(sample: dict, bu: BUConfig) -> list[dict]:
     """根据一条样本 + BU 领域知识构造 chat messages。
 
     sample 期望字段:question / context / dispatched_intent / dispatch_reason /
-    answer_text / answer_type / next_user_turn。
+    answer_text(原文) / next_user_turn。
     bu 提供意图清单与评测专家身份(证券/寿险不同)。
     """
     intents = bu.intents_block()
@@ -64,8 +64,8 @@ def build_messages(sample: dict, bu: BUConfig) -> list[dict]:
 {ctx}
   系统实际分发到的业务/模块:{sample.get('dispatched_intent', '(未知)')}
   系统分发理由:{sample.get('dispatch_reason', '(无)')}
-  AI回答(已规范化):{sample.get('answer_text', '(空)')}
-  答案类型:{sample.get('answer_type', '(未知)')}
+  AI回答(原始内容,可能是 JSON 渲染卡 / 含 HTML 标签 / 多层嵌套,请自行读懂其中对用户可见的语义,忽略标签和无关字段):
+  {sample.get('answer_text', '(空)')}
   紧接着用户的下一轮(仅用于评"是否解决",禁止用于判意图/分发):{sample.get('next_user_turn') or '(无/会话结束)'}
 
   日志是否已把本条分给本BU:{'是(进入解决度评测)' if sample.get('dispatched_to_bu') else '否(拒识/分给他BU,不评解决度)'}

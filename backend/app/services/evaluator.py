@@ -51,9 +51,7 @@ def assemble_row(sample: dict, judge: dict) -> dict:
         "next_user_turn": sample["next_user_turn"],
         "dispatched_intent": sample["dispatched_intent"],
         "dispatched_to_bu": sample.get("dispatched_to_bu", False),
-        "answer_type": sample["answer_type"],
         "answer_text": sample["answer_text"],
-        "intent_signals": sample["intent_signals"],
         "judge": judge,
         "j_intent": judge.get("intent_pred", "") if isinstance(judge, dict) else "",
         "dispatch_correct": dispatch_correct,
@@ -228,7 +226,6 @@ def compute_insights(rows: list[dict]) -> dict:
         unresolved_examples = [
             r["question"] for r in in_bu if r["j_resolved_raw"] in ("no", "partial")
         ][:3]
-        ans_types = Counter(r["answer_type"] for r in in_bu if r["answer_type"])
         return {
             "name": name,
             "count": n,
@@ -236,7 +233,6 @@ def compute_insights(rows: list[dict]) -> dict:
             "resolved_rate": _rate(resolved_yes, len(in_bu)),
             "needs_review_rate": _rate(need_review, n),
             "unresolved_examples": unresolved_examples,
-            "answer_types": [{"type": k, "count": v} for k, v in ans_types.most_common(5)],
         }
 
     intent_slices = sorted(

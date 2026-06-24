@@ -12,7 +12,6 @@ export default function DetailDrawer({ row, onClose }) {
 
   if (!row) return null
   const j = row.judge || {}
-  const sig = row.intent_signals || {}
 
   return (
     <>
@@ -56,8 +55,8 @@ export default function DetailDrawer({ row, onClose }) {
             </Block>
           )}
 
-          {/* 规范化答案 */}
-          <Block icon={Bot} title="AI 回答（已从 JSON 渲染卡解析）" badge={row.answer_type}>
+          {/* AI 回答原文(不解析,交给 LLM 读) */}
+          <Block icon={Bot} title="AI 回答（原始内容）">
             <pre className="whitespace-pre-wrap rounded-lg bg-ink-800/60 px-3 py-2.5 text-sm leading-relaxed text-slate-300">
               {row.answer_text || '（空）'}
             </pre>
@@ -108,18 +107,6 @@ export default function DetailDrawer({ row, onClose }) {
               </div>
             )}
           </Block>
-
-          {/* 答案 blob 挖到的意图信号 */}
-          {(sig.intent_name || sig.matched_std_q || sig.bot) && (
-            <Block icon={Bot} title="答案 blob 埋藏的意图元数据">
-              <div className="space-y-1 text-xs text-slate-400">
-                {sig.intent_name && <div><span className="text-slate-500">系统识别意图:</span> {sig.intent_name}</div>}
-                {sig.matched_std_q && <div><span className="text-slate-500">命中标准问:</span> {sig.matched_std_q}</div>}
-                {sig.bot && <div><span className="text-slate-500">承接模块:</span> {sig.bot}</div>}
-                {sig.source && <div><span className="text-slate-500">来源:</span> {sig.source}</div>}
-              </div>
-            </Block>
-          )}
         </div>
       </aside>
     </>

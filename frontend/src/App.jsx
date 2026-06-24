@@ -133,7 +133,7 @@ function NavBar({ config, onReset, showReset }) {
             <Activity size={18} className="text-white" />
           </div>
           <div>
-            <div className="text-sm font-semibold text-slate-100">Ark 对话评测平台</div>
+            <div className="text-sm font-semibold text-slate-100">Ark 快捷服务评估平台</div>
             <div className="text-[11px] text-slate-500">多 BU · LLM-as-a-Judge 自动化评测流水线</div>
           </div>
         </div>
@@ -188,7 +188,7 @@ function ResultView({ result, task }) {
 
       {/* 概览统计:BU 分发准确率 + 端到端解决率(漏斗口径) */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="有效评测样本" value={s.total_samples} sub={`原始 ${f.total} 条 · 过滤 ${f.dropped} 条`} tone="brand" icon={Database} />
+        <StatCard label="评测样本" value={s.total_samples} sub={`日志共 ${f.total} 条`} tone="brand" icon={Database} />
         <StatCard label="BU 分发准确率" value={pct(s.dispatch_accuracy)} sub={`该承接/拒识判对占比`} tone="info" icon={TrendingUp} />
         <StatCard label="端到端解决率" value={pct(s.end_to_end_resolved_rate ?? s.resolved_rate)} sub="仅分发到本BU的问题" tone="good" icon={CheckCircle2} />
         {isCalib

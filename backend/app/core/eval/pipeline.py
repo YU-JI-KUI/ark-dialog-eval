@@ -1,14 +1,14 @@
 # -*- coding: utf-8 -*-
-"""评测流水线:列解析 → 样本过滤 → 会话重组 → 样本构造。
+"""评测流水线:列解析 → 会话重组 → 样本构造。
 
-把日志原始 Excel 变成一批可喂给 Judge 的样本(sample dict)。
+把日志原始 Excel 变成一批可喂给 Judge 的样本(sample dict)。上传什么评什么,
+不做样本过滤(避免按行删破坏多轮上下文)。
 列名用「包含匹配」做鲁棒解析,兼容不同导出的细微差异。
 """
 from __future__ import annotations
 
 import pandas as pd
 
-from app.core.eval.answer_parser import extract_answer, extract_intent_signals
 
 # 逻辑键 -> 候选列名(按包含匹配,命中第一个)
 COLS: dict[str, list[str]] = {
@@ -22,11 +22,6 @@ COLS: dict[str, list[str]] = {
     "recog_type": ["问题识别类型"],
     "dispatch_bu": ["分发BU"],
     "dispatch_reason": ["分发BU理由", "分发理由"],
-    "env": ["日志环境"],
-    "is_test": ["是否测试账号"],
-    "valid": ["当前问问是否有效", "当前问题是否有效"],
-    "like": ["赞踩结果"],
-    "like_reason": ["赞踩原因"],
     # 人工金标
     "gold_dispatch": ["分发是否正确"],
     "gold_oneclick": ["一键场景分发是否正确"],
@@ -64,35 +59,20 @@ def resolve_columns(df: pd.DataFrame) -> dict[str, str]:
     return m
 
 
-def filter_samples(df: pd.DataFrame, m: dict[str, str]) -> tuple[pd.DataFrame, dict]:
-    """样本过滤:剔除测试环境、测试账号、无效问题。返回过滤后的 df 和过滤统计。"""
-    total = len(df)
-    stats = {"total": total}
-    if "env" in m:
-        df = df[df[m["env"]].str.contains("正式", na=False)]
-    stats["after_env"] = len(df)
-    if "is_test" in m:
-        df = df[~df[m["is_test"]].str.contains("是", na=False)]
-    stats["after_test_account"] = len(df)
-    if "valid" in m:
-        df = df[df[m["valid"]].str.contains("是", na=False)]
-    stats["after_valid"] = len(df)
-    stats["kept"] = len(df)
-    stats["dropped"] = total - len(df)
-    return df, stats
-
-
 def load_and_prep(path: str) -> tuple[pd.DataFrame, dict[str, str], dict]:
-    """读 Excel → 解析列 → 过滤 → 按会话+轮次排序。"""
+    """读 Excel → 解析列 → 按会话+轮次排序。
+
+    不做样本过滤:上传什么评什么。按行删测试环境/账号/无效问题会破坏多轮上下文
+    (删掉一通对话中间某轮,后续轮的前文就接不上了),且生产日志本就没有这些列。
+    """
     df = pd.read_excel(path, dtype=str).fillna("")
     m = resolve_columns(df)
-    df, filter_stats = filter_samples(df, m)
-    # 过滤后是原 df 的切片视图,显式 copy 再写新列,避免 SettingWithCopyWarning
     df = df.copy()
     # 轮次转数字用于排序;非法值补 0
     df["_turn_n"] = pd.to_numeric(df[m["turn"]], errors="coerce").fillna(0).astype(int)
     df = df.sort_values([m["session"], "_turn_n"]).reset_index(drop=True)
-    return df, m, filter_stats
+    stats = {"total": len(df)}
+    return df, m, stats
 
 
 # 用于判定模式的二值金标列(任一列含「是/否」即算有金标)
@@ -134,27 +114,17 @@ def build_sample(df: pd.DataFrame, i: int, m: dict[str, str], bu) -> dict:
     prior = df[(df[m["session"]] == sess) & (df["_turn_n"] < row["_turn_n"])]
     nxt = df[(df[m["session"]] == sess) & (df["_turn_n"] > row["_turn_n"])]
 
-    parsed = extract_answer(row[m["answer"]])
-    sig = extract_intent_signals(row[m["answer"]])
+    # 答案不做代码解析:格式无法穷举,硬解会崩(如 list/dict 结构不定)。
+    # 直接把答案列原文(JSON+标签+一切)丢给 LLM,由模型自己读懂。
+    dispatched = (row.get(m["sys_intent"], "") if "sys_intent" in m else "") or "(未知)"
+    reason = row.get(m["dispatch_reason"], "") if "dispatch_reason" in m else ""
 
-    # 系统分发到的意图:优先模型意图列,缺失时用答案 blob 挖的 intent_name 兜底
-    dispatched = (
-        (row.get(m["sys_intent"], "") if "sys_intent" in m else "")
-        or sig.get("intent_name")
-        or "(未知)"
-    )
-    reason = (
-        (row.get(m["dispatch_reason"], "") if "dispatch_reason" in m else "")
-        or sig.get("matched_std_q", "")
-    )
-
-    # 上下文 = 前文每一轮的「用户问 + AI 答」。AI 答也解析(同样是渲染卡),
-    # 否则「详细说一下第二个的走势」这类指代上一轮答案的问题,judge 判不出。
+    # 上下文 = 前文每一轮的「用户问 + AI 答原文」(答案原文,不解析)。
     context = [
         {
             "turn": int(r["_turn_n"]),
             "user": r[m["question"]],
-            "ai": extract_answer(r[m["answer"]])["text"],
+            "ai": r[m["answer"]],
         }
         for _, r in prior.iterrows()
     ]
@@ -173,10 +143,8 @@ def build_sample(df: pd.DataFrame, i: int, m: dict[str, str], bu) -> dict:
         "dispatched_bu": _dbu,
         "dispatched_to_bu": bu.matches_dispatch(_dbu),
         "target_bu": bu.name,
-        "answer_text": parsed["text"],
-        "answer_type": parsed["answer_type"],
+        "answer_text": row[m["answer"]],   # 答案原文,交给 LLM 读
         "next_user_turn": (nxt.iloc[0][m["question"]] if len(nxt) else None),
-        "intent_signals": sig,
         # 透传金标供校准
         "gold": {
             "dispatch": row.get(m.get("gold_dispatch", ""), "") if "gold_dispatch" in m else "",

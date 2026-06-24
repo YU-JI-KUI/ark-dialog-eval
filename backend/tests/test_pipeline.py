@@ -1,13 +1,9 @@
 # -*- coding: utf-8 -*-
-"""流水线测试:列解析(精确优先)、过滤、会话重组。"""
+"""流水线测试:列解析(精确优先)、会话重组、不做样本过滤。"""
 import pandas as pd
 
 from app.core.bu.securities import SECURITIES as SEC
-from app.core.eval.pipeline import (
-    build_all_samples,
-    filter_samples,
-    resolve_columns,
-)
+from app.core.eval.pipeline import build_all_samples, load_and_prep, resolve_columns
 
 
 def _df():
@@ -15,7 +11,6 @@ def _df():
         {
             "客户问题": "手机充值", "客户咨询轮次": "1", "应用会话ID": "A1",
             "答案一级围栏标签": "x", "标准问答案": "y", "答案": "真答案",
-            "日志环境": "正式", "是否测试账号": "否", "当前问问是否有效": "是",
             "分发是否正确": "否", "答案是否解决客户问题": "否",
         },
     ])
@@ -28,35 +23,32 @@ def test_exact_match_beats_substring():
     assert m["gold_resolved"] == "答案是否解决客户问题"
 
 
-def test_filter_drops_invalid():
-    """无效问题被过滤。"""
+def test_no_filter_keeps_all_rows(tmp_path):
+    """不做样本过滤:上传几行就评几行,一行不删(保上下文完整)。"""
     df = pd.DataFrame([
-        {"客户问题": "a", "客户咨询轮次": "1", "应用会话ID": "S1", "答案": "",
-         "日志环境": "正式", "是否测试账号": "否", "当前问问是否有效": "是"},
-        {"客户问题": "b", "客户咨询轮次": "1", "应用会话ID": "S2", "答案": "",
-         "日志环境": "正式", "是否测试账号": "否", "当前问问是否有效": "否"},
+        {"客户问题": "。。。", "客户咨询轮次": "1", "应用会话ID": "S", "答案": ""},
+        {"客户问题": "我的总资产", "客户咨询轮次": "2", "应用会话ID": "S", "答案": "52万"},
     ])
-    m = resolve_columns(df)
-    kept, stats = filter_samples(df, m)
+    p = tmp_path / "log.xlsx"
+    df.to_excel(p, index=False)
+    out, m, stats = load_and_prep(str(p))
     assert stats["total"] == 2
-    assert stats["kept"] == 1
+    assert len(out) == 2  # 无效的"。。。"那行也保留,不删
 
 
 def test_session_context_reconstruction():
     """同会话多轮:第2轮应能拿到第1轮作为上下文,第1轮记录下一轮。"""
     df = pd.DataFrame([
-        {"客户问题": "融资利率", "客户咨询轮次": "1", "应用会话ID": "S", "答案": "6.5%",
-         "日志环境": "正式", "是否测试账号": "否", "当前问问是否有效": "是"},
-        {"客户问题": "融资成本", "客户咨询轮次": "2", "应用会话ID": "S", "答案": "中等",
-         "日志环境": "正式", "是否测试账号": "否", "当前问问是否有效": "是"},
+        {"客户问题": "融资利率", "客户咨询轮次": "1", "应用会话ID": "S", "答案": "6.5%"},
+        {"客户问题": "融资成本", "客户咨询轮次": "2", "应用会话ID": "S", "答案": "中等"},
     ])
     m = resolve_columns(df)
     df["_turn_n"] = pd.to_numeric(df[m["turn"]]).astype(int)
     df = df.sort_values(["应用会话ID", "_turn_n"]).reset_index(drop=True)
     samples = build_all_samples(df, m, SEC)
     assert samples[0]["next_user_turn"] == "融资成本"
-    # 第2轮的上下文应含第1轮的「用户问 + AI 答」(AI 答用于解析指代)
+    # 第2轮的上下文应含第1轮的「用户问 + AI 答原文」
     ctx = samples[1]["context"]
     assert len(ctx) == 1
     assert ctx[0]["user"] == "融资利率"
-    assert ctx[0]["ai"] == "6.5%"  # 上一轮 AI 答也带上了
+    assert ctx[0]["ai"] == "6.5%"

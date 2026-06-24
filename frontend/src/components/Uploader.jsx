@@ -2,13 +2,13 @@ import { useRef, useState } from 'react'
 import { UploadCloud, FileSpreadsheet, ShieldCheck, TrendingUp, Building2 } from 'lucide-react'
 import clsx from 'clsx'
 
-// 流水线 6 步,呼应交接文档第 3 节
+// 评测流水线(上传什么评什么,不过滤;答案原文进 LLM,不代码解析)
 const PIPELINE = [
-  ['样本过滤', '剔除测试环境/账号、无效问题'],
   ['会话重组', '按会话ID分组、按轮次排序拼上下文'],
-  ['答案规范化', 'JSON 渲染卡→语义文本,挖意图元数据'],
-  ['LLM Judge', '意图分发 + 答案解决度 + 业务分类'],
-  ['校准对齐', '对人工金标算 准召F1 + κ + 混淆矩阵'],
+  ['LLM Judge', 'BU分发 + 答案解决度 + 业务分类(答案原文进上下文)'],
+  ['漏斗聚合', 'BU分发准确率 + 端到端解决率(按业务分类切片)'],
+  ['优化建议', '基于聚合指标给针对性改进方向'],
+  ['校准对齐', '有人工金标时算 准召F1 + κ + 混淆矩阵'],
   ['置信路由', '高置信自动结案,难例进人工复核'],
 ]
 
@@ -27,7 +27,7 @@ export default function Uploader({ onUpload, onSample, busy, bus = [] }) {
         <div className="mb-5">
           <div className="mb-2 flex items-center gap-2 text-sm text-slate-400">
             <Building2 size={15} className="text-brand-400" />
-            选择业务单元(BU)—— 决定业务分类体系
+            选择 BU
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             {bus.map((b) => (

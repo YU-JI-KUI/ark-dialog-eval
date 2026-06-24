@@ -13,7 +13,6 @@
 dialog-eval/
 ├── SKILL.md                      # 灵魂:评判方法论 + 流程 + 输出契约(四条铁律)
 ├── scripts/                      # 确定性脚本(平安 One 调用,不靠 LLM 逐条解析)
-│   ├── answer_parser.py            答案 JSON 渲染卡 → 语义文本(双层嵌套+HTML+容错)
 │   ├── prepare.py                  Excel → 过滤+会话重组+解析 → 干净样本 JSON
 │   └── metrics.py                  AI判断 vs 人工金标 → κ/F1/混淆矩阵(带可信度判定)
 └── reference/                    # 各 BU 要调的就是这里(纯文本)

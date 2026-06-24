@@ -44,7 +44,7 @@
 
 ## 答案 schema 备注
 
-证券答案常见两类:活动权益卡(catalogId=mx-activity-result-multiple)、文本/FAQ/转人工(msgType=aat_text,双层嵌套+HTML)。已由 `scripts/answer_parser.py` 处理,无需手工解析。行情/选股数据卡若出现未知结构,降级为纯文本,判不准则转人工。
+答案**不做代码解析**(格式无法穷举:活动权益卡 / 文本FAQ / 转人工 / 行情数据卡 / 多层嵌套 / list 套 list…)。答案原文(JSON+标签)直接进样本的 `answer_text`,由 LLM 评测时自行读懂对用户可见的语义,忽略标签和无关字段。读不懂的判不准就转人工。
 
 ## 校准历史(每轮回写,持续对齐)
 

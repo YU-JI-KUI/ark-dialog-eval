@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
-"""对话日志预处理:列解析 → 样本过滤 → 会话重组 → 答案解析 → 输出样本 JSON。
+"""对话日志预处理:列解析 → 会话重组 → 输出样本 JSON(不做样本过滤,上传什么评什么)。
 
-平安 One 调本脚本拿到「干净的可评测样本」,无需自己逐条读原始 Excel 和解析
-变态的答案 JSON——既快又稳。
+平安 One 调本脚本拿到「干净的可评测样本」,无需自己逐条读原始 Excel。
+注意:答案**不做代码解析**(格式无法穷举,硬解会崩),答案原文(JSON+标签)
+原样放进样本,由 LLM 在评测时自行读懂。
 
 用法:
     python prepare.py 日志.xlsx > samples.json
@@ -10,7 +11,7 @@
 
 输出:JSON,含 mode(校准/生产)、filter_stats、samples[]。
 每个 sample 带:row_index/session/turn/question/context/next_user_turn/
-dispatched_intent/answer_text/answer_type/intent_signals/gold。
+dispatched_intent/answer_text(原文)/gold。
 依赖:pandas, openpyxl。
 """
 from __future__ import annotations
@@ -21,7 +22,6 @@ import sys
 
 import pandas as pd
 
-from answer_parser import extract_answer, extract_intent_signals
 
 # 逻辑键 -> 候选列名(精确优先,再包含匹配)
 COLS = {
@@ -33,9 +33,6 @@ COLS = {
     "agent_class": ["智能体分类"],
     "dispatch_bu": ["分发BU"],
     "dispatch_reason": ["分发BU理由", "分发理由"],
-    "env": ["日志环境"],
-    "is_test": ["是否测试账号"],
-    "valid": ["当前问问是否有效", "当前问题是否有效"],
     "gold_dispatch": ["分发是否正确"],
     "gold_oneclick": ["一键场景分发是否正确"],
     "gold_resolved": ["答案是否解决客户问题"],
@@ -74,13 +71,7 @@ def prepare(path: str, limit: int | None = None, bu_name: str = "证券",
     m = resolve_columns(df)
     total = len(df)
 
-    # 过滤:正式环境、非测试账号、有效问题
-    if "env" in m:
-        df = df[df[m["env"]].str.contains("正式", na=False)]
-    if "is_test" in m:
-        df = df[~df[m["is_test"]].str.contains("是", na=False)]
-    if "valid" in m:
-        df = df[df[m["valid"]].str.contains("是", na=False)]
+    # 不做样本过滤:上传什么评什么。按行删测试环境/账号/无效问题会破坏多轮上下文。
     df = df.copy()
     df["_turn_n"] = pd.to_numeric(df[m["turn"]], errors="coerce").fillna(0).astype(int)
     df = df.sort_values([m["session"], "_turn_n"]).reset_index(drop=True)
@@ -98,19 +89,14 @@ def prepare(path: str, limit: int | None = None, bu_name: str = "证券",
         sess = row[m["session"]]
         prior = df[(df[m["session"]] == sess) & (df["_turn_n"] < row["_turn_n"])]
         nxt = df[(df[m["session"]] == sess) & (df["_turn_n"] > row["_turn_n"])]
-        parsed = extract_answer(row[m["answer"]])
-        sig = extract_intent_signals(row[m["answer"]])
-        dispatched = (
-            (row.get(m["sys_intent"], "") if "sys_intent" in m else "")
-            or sig.get("intent_name") or "(未知)"
-        )
-        # 上下文 = 前文每一轮的「用户问 + AI 答」。AI 答也要解析(同样是渲染卡),
-        # 否则像「详细说一下第二个的走势」这类指代上一轮答案的问题,judge 判不出。
+        # 答案不做代码解析:格式无法穷举,硬解会崩。原文(JSON+标签)直接给 LLM 读。
+        dispatched = (row.get(m["sys_intent"], "") if "sys_intent" in m else "") or "(未知)"
+        # 上下文 = 前文每一轮的「用户问 + AI 答原文」(不解析)。
         context = [
             {
                 "turn": int(r["_turn_n"]),
                 "user": r[m["question"]],
-                "ai": extract_answer(r[m["answer"]])["text"],
+                "ai": r[m["answer"]],
             }
             for _, r in prior.iterrows()
         ]
@@ -135,9 +121,7 @@ def prepare(path: str, limit: int | None = None, bu_name: str = "证券",
             "dispatched_bu": dbu,                      # 日志原始「分发BU」值
             "dispatched_to_bu": dispatched_to_bu,      # 日志是否把这条分给了本 BU
             "target_bu": bu_name,
-            "answer_text": parsed["text"],
-            "answer_type": parsed["answer_type"],
-            "intent_signals": sig,
+            "answer_text": row[m["answer"]],   # 答案原文,交给 LLM 读
             "gold": {
                 "dispatch": row.get(m.get("gold_dispatch", ""), "") if "gold_dispatch" in m else "",
                 "oneclick": row.get(m.get("gold_oneclick", ""), "") if "gold_oneclick" in m else "",
@@ -149,7 +133,7 @@ def prepare(path: str, limit: int | None = None, bu_name: str = "证券",
     return {
         "mode": mode,
         "target_bu": bu_name,
-        "filter_stats": {"total": total, "kept": len(df), "dropped": total - len(df)},
+        "filter_stats": {"total": total},
         "sample_count": len(samples),
         "samples": samples,
     }
