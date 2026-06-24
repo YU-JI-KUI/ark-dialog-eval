@@ -71,8 +71,7 @@ def mock_judge(sample: dict, bu: BUConfig) -> dict:
     return {
         "intent_pred": intent,
         "intent_confidence": round(conf, 2),
-        "business_group": bu.group_of(intent),
-        "business_type": intent,  # 业务类型标签(切片用)
+        "business_type": intent,  # 业务分类标签(切片用)
         "should_dispatch_to_bu": bool(should_dispatch_to_bu),
         "dispatch_reason": f"问题判为『{intent}』→ {'该' if should_dispatch_to_bu else '不该'}本BU承接",
         "answer_relevant": bool(relevant),

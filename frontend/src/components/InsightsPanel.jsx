@@ -72,31 +72,13 @@ function SliceTable({ slices, dim }) {
 }
 
 export default function InsightsPanel({ insights }) {
-  const [dim, setDim] = useState('intent')
   if (!insights) return null
-  const slices = dim === 'intent' ? insights.by_intent : insights.by_group
   return (
     <div>
-      <div className="flex items-center justify-between">
-        <SectionTitle hint="端到端解决率(仅分发到本BU的问题),点表头按差的排序,定位优化重点">
-          业务洞察
-        </SectionTitle>
-        <div className="flex gap-1 rounded-lg border border-line bg-ink-850 p-1">
-          {[['intent', '按意图'], ['group', '按业务大类']].map(([k, label]) => (
-            <button
-              key={k}
-              onClick={() => setDim(k)}
-              className={clsx(
-                'rounded-md px-3 py-1 text-xs font-medium transition',
-                dim === k ? 'bg-brand-600 text-white' : 'text-slate-400 hover:text-slate-200',
-              )}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      </div>
-      <SliceTable slices={slices} dim={dim === 'intent' ? '意图' : '业务大类'} />
+      <SectionTitle hint="端到端解决率(仅分发到本BU的问题),点表头按差的排序,定位优化重点">
+        业务洞察
+      </SectionTitle>
+      <SliceTable slices={insights.by_intent} dim="业务分类" />
     </div>
   )
 }

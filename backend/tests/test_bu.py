@@ -44,7 +44,7 @@ def test_mock_judge_respects_bu_rules():
     j = mock_judge({"question": "住院了怎么理赔", "dispatched_intent": "理赔助手",
                     "answer_text": "理赔流程如下", "next_user_turn": None}, life)
     assert j["intent_pred"] == "理赔咨询"
-    assert j["business_group"] == life.group_of("理赔咨询")
+    assert j["business_type"] == "理赔咨询"
 
 
 def test_sample_filenames_configured():

@@ -127,8 +127,8 @@ async def run_evaluation(path: str, bu: BUConfig, on_progress=None, task_id=None
 
     # 校准指标仅在 calibration 模式算;production 无金标则为空
     metrics = _compute_metrics(rows) if mode == "calibration" else []
-    intent_dist = _intent_distribution(rows, bu)
-    insights = compute_insights(rows, bu)  # 业务洞察:两种模式都算
+    intent_dist = _intent_distribution(rows)
+    insights = compute_insights(rows)  # 业务洞察:两种模式都算
     bu_dispatch = _bu_dispatch_stats(rows)
     if on_progress:
         on_progress("advising", 0, 1)
@@ -193,19 +193,11 @@ def _compute_metrics(rows: list[dict]) -> list[dict]:
     return out
 
 
-def _intent_distribution(rows: list[dict], bu: BUConfig) -> dict:
-    """意图分布 + 业务大类分布(切片统计)。"""
+def _intent_distribution(rows: list[dict]) -> dict:
+    """业务分类分布(切片统计)。"""
     intent_counter = Counter(r["j_intent"] for r in rows if r["j_intent"])
-    group_counter: Counter = Counter()
-    for r in rows:
-        g = r["judge"].get("business_group") if isinstance(r["judge"], dict) else None
-        if g:
-            group_counter[g] += 1
-        elif r["j_intent"]:
-            group_counter[bu.group_of(r["j_intent"])] += 1
     return {
         "by_intent": [{"name": k, "count": v} for k, v in intent_counter.most_common()],
-        "by_group": [{"name": k, "count": v} for k, v in group_counter.most_common()],
     }
 
 
@@ -213,24 +205,16 @@ def _rate(numerator: int, denominator: int) -> float:
     return round(numerator / denominator, 4) if denominator else 0.0
 
 
-def compute_insights(rows: list[dict], bu: BUConfig) -> dict:
-    """业务洞察:按意图 / 业务大类切片算硬指标(生产模式核心产出)。
+def compute_insights(rows: list[dict]) -> dict:
+    """业务洞察:按业务分类切片算硬指标(生产模式核心产出)。
 
-    每个切片算:样本量、解决率(judge resolved=yes 占比)、分发正确率(judge
-    dispatch_correct 占比)、需复核占比、未解决原因 Top、答案类型分布。
+    每个切片算:样本量、进漏斗数、端到端解决率、需复核占比、未解决典型问题。
     这些是「代码算的硬指标」,后续喂给大模型生成优化建议。
     """
     by_intent: dict[str, list] = defaultdict(list)
-    by_group: dict[str, list] = defaultdict(list)
     for r in rows:
         intent = r["j_intent"] or "(未分类)"
         by_intent[intent].append(r)
-        grp = (
-            r["judge"].get("business_group")
-            if isinstance(r["judge"], dict) and r["judge"].get("business_group")
-            else bu.group_of(r["j_intent"])
-        )
-        by_group[grp].append(r)
 
     def slice_stats(name: str, group_rows: list[dict]) -> dict:
         n = len(group_rows)
@@ -259,10 +243,6 @@ def compute_insights(rows: list[dict], bu: BUConfig) -> dict:
         (slice_stats(k, v) for k, v in by_intent.items()),
         key=lambda x: x["count"], reverse=True,
     )
-    group_slices = sorted(
-        (slice_stats(k, v) for k, v in by_group.items()),
-        key=lambda x: x["count"], reverse=True,
-    )
 
     # 整体端到端解决率:分母 = 分发到本BU的样本(漏斗)
     in_bu_total = [r for r in rows if r.get("dispatched_to_bu")]
@@ -277,7 +257,6 @@ def compute_insights(rows: list[dict], bu: BUConfig) -> dict:
             "dispatch_accuracy": _rate(dispatch_ok_total, dispatch_scored),
         },
         "by_intent": intent_slices,
-        "by_group": group_slices,
     }
 
 

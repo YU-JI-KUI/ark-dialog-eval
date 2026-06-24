@@ -130,7 +130,7 @@ async def generate_advice(insights: dict, bu: BUConfig, bu_dispatch: dict | None
     """
     if active_backend() == "pingan":
         try:
-            messages = build_advice_prompt(insights, bu)
+            messages = build_advice_prompt(insights, bu, bu_dispatch)
             resp = await call_bigmodel_api(
                 query=messages,
                 scene_id=settings.llm_scene_id,

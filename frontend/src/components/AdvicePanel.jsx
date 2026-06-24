@@ -21,7 +21,7 @@ export default function AdvicePanel({ advice }) {
       <div>
         <SectionTitle>优化建议</SectionTitle>
         <div className="card p-6 text-sm text-slate-400">
-          暂无明显需优化的点(各意图样本量不足或指标均健康)。
+          暂无明显需优化的点(各业务分类样本量不足或指标均健康)。
         </div>
       </div>
     )

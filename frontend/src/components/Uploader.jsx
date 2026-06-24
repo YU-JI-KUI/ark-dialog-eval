@@ -22,12 +22,12 @@ export default function Uploader({ onUpload, onSample, busy, bus = [] }) {
 
   return (
     <div className="mx-auto max-w-4xl">
-      {/* BU 选择器:决定用哪套意图体系评测 */}
+      {/* BU 选择器:决定用哪套业务分类体系评测 */}
       {bus.length > 0 && (
         <div className="mb-5">
           <div className="mb-2 flex items-center gap-2 text-sm text-slate-400">
             <Building2 size={15} className="text-brand-400" />
-            选择业务单元(BU)—— 决定意图体系
+            选择业务单元(BU)—— 决定业务分类体系
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             {bus.map((b) => (
@@ -50,7 +50,7 @@ export default function Uploader({ onUpload, onSample, busy, bus = [] }) {
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="font-medium text-slate-100">{b.name}</span>
-                    <span className="text-xs text-slate-500">{b.intent_count} 个意图</span>
+                    <span className="text-xs text-slate-500">{b.intent_count} 个业务分类</span>
                   </div>
                   <div className="mt-0.5 truncate text-xs text-slate-500">{b.description}</div>
                 </div>

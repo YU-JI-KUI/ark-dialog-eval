@@ -33,20 +33,20 @@ def test_mock_judge_rejects_phone_recharge():
     assert j["factual_correct"] is None
 
 
-def test_mock_judge_activity():
-    """『解锁权益』判为活动 → 该证券承接;分发到本BU时判解决度。"""
-    s = {"question": "帮我解锁消费权益", "dispatched_intent": "活动",
-         "answer_text": "恭喜领取权益", "next_user_turn": None, "dispatched_to_bu": True}
+def test_mock_judge_securities_business():
+    """证券业务问题 → 该证券承接;分发到本BU时判解决度。"""
+    s = {"question": "我的总资产多少", "dispatched_intent": "资产查询",
+         "answer_text": "您的总资产为 50 万元", "next_user_turn": None, "dispatched_to_bu": True}
     j = mock_judge(s, SEC)
-    assert j["intent_pred"] == "活动"
+    assert j["intent_pred"] == "资产查询"
     assert j["should_dispatch_to_bu"] is True
     assert j["answer_resolved"] == "yes"
 
 
 def test_mock_judge_not_dispatched_skips_resolution():
     """未分发到本BU(漏斗外)→ 解决度不判,填 unknown。"""
-    s = {"question": "帮我解锁消费权益", "dispatched_intent": "活动",
-         "answer_text": "恭喜领取权益", "next_user_turn": None, "dispatched_to_bu": False}
+    s = {"question": "我的总资产多少", "dispatched_intent": "资产查询",
+         "answer_text": "您的总资产为 50 万元", "next_user_turn": None, "dispatched_to_bu": False}
     j = mock_judge(s, SEC)
     assert j["answer_resolved"] == "unknown"
 

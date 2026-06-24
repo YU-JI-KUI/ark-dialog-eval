@@ -5,7 +5,7 @@
 无模型时退化为规则版建议(基于阈值),保证任何环境都有可用输出。
 
 建议结构(每条):
-  scope        : 作用域(意图名 / 业务大类 / 全局)
+  scope        : 作用域(业务分类 / 全局)
   severity     : high / medium / low
   problem      : 一句话问题描述
   root_cause   : 根因判断(分发问题 / 答案问题 / 数据问题 / 需人工)
@@ -25,30 +25,25 @@ _HIGH_REVIEW = 0.4
 _MIN_SAMPLES = 3  # 样本太少不下结论
 
 
-def build_advice_prompt(insights: dict, bu: BUConfig) -> list[dict]:
+def build_advice_prompt(insights: dict, bu: BUConfig, bu_dispatch: dict | None = None) -> list[dict]:
     """构造给大模型的消息:把聚合指标 + 失败样例喂进去。"""
     system = (
         f"你是平安{bu.name}智能问答系统的优化顾问。基于给定的评测聚合指标和失败样例,"
         "给出有针对性、可落地的优化建议,只依据数据,不臆测。"
     )
     overall = insights["overall"]
-    # 只把信息量大的切片喂给模型(样本量足够的),控制 token
-    slices = [s for s in insights["by_intent"] if s["count"] >= _MIN_SAMPLES]
+    # 只把信息量大的切片喂给模型(进漏斗样本量足够的),控制 token
+    slices = [s for s in insights["by_intent"] if s.get("in_bu_count", 0) >= _MIN_SAMPLES]
     payload = {
-        "整体": {
-            "样本量": overall["count"],
-            "解决率": overall["resolved_rate"],
-            "分发准确率": overall["dispatch_accuracy"],
-        },
-        "各意图切片": [
+        "BU分发": bu_dispatch or {},   # 准确率 + 两类错误(漏收/误收)
+        "整体端到端解决率": overall["resolved_rate"],
+        "各业务类型切片(端到端解决率,分母=分发到本BU的子集)": [
             {
-                "意图": s["name"],
-                "样本量": s["count"],
-                "解决率": s["resolved_rate"],
-                "分发准确率": s["dispatch_accuracy"],
+                "业务类型": s["name"],
+                "进漏斗样本量": s.get("in_bu_count", 0),
+                "端到端解决率": s["resolved_rate"],
                 "需复核率": s["needs_review_rate"],
                 "未解决典型问题": s["unresolved_examples"],
-                "答案类型分布": s["answer_types"],
             }
             for s in slices
         ],
@@ -58,7 +53,7 @@ def build_advice_prompt(insights: dict, bu: BUConfig) -> list[dict]:
 {json.dumps(payload, ensure_ascii=False, indent=2)}
 
 请找出最需要优化的 3-5 个点,每个点给出:
-- scope: 作用域(具体意图名 / 业务大类 / 全局)
+- scope: 作用域(具体业务分类 / 全局)
 - severity: high/medium/low
 - problem: 一句话问题
 - root_cause: 根因(分发问题/答案问题/数据问题/需人工 之一)

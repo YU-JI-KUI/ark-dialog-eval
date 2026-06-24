@@ -221,39 +221,23 @@ Web 和 CLI 共用同一套评测引擎,结果一致。
 
 ---
 
-## 🏢 内网部署(平安环境,Windows CMD)
+## 🏢 内网部署(平安环境,有 npm + uv)
 
-工作流:**外网写码调试 → 同步进内网 → 内网执行**。前端在外网先构建好 `dist` 带进内网,后端**单进程**托管整个应用,**内网零 node 依赖**。
+工作流:**外网写码 → push → 内网 `git pull` → 内网一键启动**。内网自带 npm、uv,无需在外网预编译——脚本现编译现起。**一个脚本搞定:编译前端 → 后端单进程托管 dist + API**,本地不用单独开前端。
 
-### 1. 装依赖(走内网私服)
-
-优先用 uv(已配 `uv.lock`,装得快且锁版本):
-
-```cmd
-cd backend
-uv sync --index-url http://maven.paic.com.cn/repository/pypi/simple
-```
-
-若内网无 uv,用 pip 装齐运行所需包:
-
-```cmd
-cd backend
-pip install fastapi "uvicorn[standard]" python-multipart pandas scikit-learn openpyxl httpx pycryptodome pycryptodomex cryptography python-dotenv pydantic pydantic-settings -i http://maven.paic.com.cn/repository/pypi/simple --trusted-host maven.paic.com.cn
-```
-
-> 私服可能缺包或版本滞后,装前确认。`scikit-learn` 仅用于算 κ/F1;`pandas`/`openpyxl` 用于读 Excel。
-
-### 2. 前端产物带进内网(零 node)
-
-在**外网**先构建:
+### 一键启动(推荐)
 
 ```bash
-./build.sh        # 等价于 cd frontend && npm ci && npm run build
+./start.sh            # 默认 0.0.0.0:8848:编译前端 → uv 装依赖 → 起后端(已挂 dist)
+./start.sh 9000       # 指定端口
 ```
 
-把生成的 `frontend/dist/` 一并同步进内网即可。后端 `app/main.py` 检测到 `frontend/dist` 存在就自动托管它(SPA 路由全部回 `index.html`,API 同源无跨域),**内网无需常驻 node**。
+脚本做三件事:① `npm ci && npm run build` 编译前端到 `frontend/dist` → ② `uv sync` 装后端依赖 → ③ `uvicorn` 起后端。后端 `app/main.py` 检测到 `frontend/dist` 存在就自动托管(前端 + API **同源单进程**,无跨域,无需常驻 node 进程)。打开 `http://<本机IP>:8848` 即用。
 
-### 3. 配置平安大模型凭据
+> 依赖走内网私服时,uv/npm 各自配好源即可(uv:`--index-url http://maven.paic.com.cn/repository/pypi/simple`)。
+> 首版用 `JUDGE_BACKEND=mock` 零配置就能跑通看效果;接平安大模型见下方「配置凭据」。
+
+### 配置平安大模型凭据
 
 ```cmd
 copy backend\.env.sample backend\.env
@@ -292,11 +276,13 @@ LLM_MAX_RETRIES=3
 >
 > **`dispatch_aliases` 提醒**:跑真实数据前,先看一眼真实日志「分发BU」列的实际取值,在对应 BU 的 `dispatch_aliases` 里补上(如 `PA_SEC`),否则维度① 会因列值≠中文展示名而漏判。
 
-### 5. 启动(单进程,后端直接托管前端)
+### 手动启动(备选,等价于 start.sh 的第 1、3 步)
 
-```cmd
-cd backend
-uv run uvicorn app.main:app --host 0.0.0.0 --port 8848
+若想分步执行或不重新编译前端:
+
+```bash
+cd frontend && npm run build && cd ..   # 编译前端(dist 已存在可跳过)
+cd backend && uv run uvicorn app.main:app --host 0.0.0.0 --port 8848
 ```
 
 打开 `http://<本机IP>:8848`(前端由后端托管,API 同源)。
@@ -364,8 +350,9 @@ ark-dialog-eval/
 │       ├── report_template.md         统一报告结构与口径
 │       ├── securities_rubric.md       证券:意图清单 + 承接判据 + 解决度判据
 │       └── life_rubric.md             寿险:同上
-├── dev.sh                          # 本地一键起前后端(热更新)
-├── build.sh                        # 构建前端产物
+├── start.sh                        # 内网一键:编译前端 + 后端单进程托管(推荐)
+├── dev.sh                          # 本地分离开发:同时起前后端(热更新)
+├── build.sh                        # 仅构建前端产物
 └── README.md
 ```
 

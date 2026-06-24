@@ -46,7 +46,7 @@ def _rows(intent, n, resolved="yes", to_bu=True, review=False):
     return [{
         "j_intent": intent, "j_resolved_raw": resolved, "answer_type": "faq_text",
         "question": f"{intent}问题{i}", "dispatched_to_bu": to_bu,
-        "judge": {"business_group": None, "needs_human_review": review},
+        "judge": {"needs_human_review": review},
     } for i in range(n)]
 
 
@@ -55,7 +55,7 @@ def test_compute_insights_funnel_resolved_rate():
     rows = _rows("资产查询", 4, resolved="yes", to_bu=True)
     rows += _rows("问诊股", 4, resolved="no", to_bu=True, review=True)
     rows += _rows("拒识", 2, resolved="unknown", to_bu=False)  # 漏斗外
-    ins = compute_insights(rows, SEC)
+    ins = compute_insights(rows)
     by = {s["name"]: s for s in ins["by_intent"]}
     assert by["资产查询"]["resolved_rate"] == 1.0
     assert by["问诊股"]["resolved_rate"] == 0.0
@@ -81,7 +81,7 @@ def test_bu_dispatch_stats_two_error_types():
 
 def test_rule_advice_flags_low_bu_dispatch():
     """BU 分发准确率低 → 规则建议给出 high 优先级『分发问题』。"""
-    ins = compute_insights(_rows("资产查询", 5, resolved="yes"), SEC)
+    ins = compute_insights(_rows("资产查询", 5, resolved="yes"))
     bu_dispatch = {"scored": 10, "accuracy": 0.4,
                    "miss_should_accept_but_rejected": 1,
                    "over_should_reject_but_accepted": 5}

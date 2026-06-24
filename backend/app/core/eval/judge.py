@@ -55,14 +55,14 @@ def build_messages(sample: dict, bu: BUConfig) -> list[dict]:
         if ai:
             ctx_lines.append(f"         AI答:{ai}")
     ctx = "\n".join(ctx_lines) or "    (无前文,这是首轮)"
-    user = f"""【意图清单】
+    user = f"""【业务分类清单】
 {intents}
 
 【本轮对话】
   用户问题:{sample['question']}
   多轮上下文(含前文 AI 回答,当前问题若含"第二个/那个/换一个"等指代,回看上一轮 AI 答确定指向):
 {ctx}
-  系统实际分发到的意图/模块:{sample.get('dispatched_intent', '(未知)')}
+  系统实际分发到的业务/模块:{sample.get('dispatched_intent', '(未知)')}
   系统分发理由:{sample.get('dispatch_reason', '(无)')}
   AI回答(已规范化):{sample.get('answer_text', '(空)')}
   答案类型:{sample.get('answer_type', '(未知)')}
@@ -73,7 +73,7 @@ def build_messages(sample: dict, bu: BUConfig) -> list[dict]:
 【任务】
 1. should_dispatch_to_bu:这个问题**该不该由本BU承接**?与本BU业务相关→true(该承接);与本BU无关(他业务/闲聊/拒识)→false(该拒识)。
    ★只依据"当前问题+多轮上下文(前文)",绝不能用"下一轮"反推(agent 当时还不知道用户下一轮会说什么)。在 dispatch_reason 写依据。
-2. business_type:从意图清单里给问题打一个业务类型标签(仅用于切片统计,不评分类对错)。该拒识的填"非本BU"。
+2. business_type:从业务分类清单里给问题打一个业务分类标签(仅用于切片统计,不评分类对错)。该拒识的填"非本BU"。
 3. answer_resolved:**仅当上面"日志是否已把本条分给本BU=是"时才评**;否则一律填 unknown,resolved_reason 写"非本BU承接,不评解决度"。
    评时只看不依赖业务事实的维度:相关性/完整性/下游轨迹(用户下一轮重问/不满→倾向 no/partial)。"下一轮"只在这里用。没解决在 unresolved_cause 归类原因。
 4. factual_*:无知识库,factual_verifiable=false、factual_correct=null,绝不瞎判业务事实。

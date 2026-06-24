@@ -71,9 +71,8 @@ export default function DetailDrawer({ row, onClose }) {
           {/* Judge 判断 */}
           <Block icon={Scale} title="Judge 判断">
             <div className="grid grid-cols-2 gap-2.5">
-              <JField label="意图预测" value={j.intent_pred} />
-              <JField label="意图置信" value={fmtConf(j.intent_confidence)} />
-              <JField label="业务大类" value={j.business_group} />
+              <JField label="业务分类" value={j.intent_pred} />
+              <JField label="分类置信" value={fmtConf(j.intent_confidence)} />
               <JFieldBool label="分发正确" value={j.dispatch_correct} />
               <JFieldBool label="答案相关" value={j.answer_relevant} />
               <JFieldBool label="答案完整" value={j.answer_complete} />

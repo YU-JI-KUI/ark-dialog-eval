@@ -44,7 +44,7 @@ export default function RowsTable({ rows }) {
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="搜问题/意图/会话"
+              placeholder="搜问题/分类/会话"
               className="w-36 bg-transparent text-xs text-slate-200 placeholder:text-slate-600 focus:outline-none"
             />
           </div>
@@ -79,7 +79,7 @@ export default function RowsTable({ rows }) {
             <tr className="border-b border-line text-left text-xs text-slate-500">
               <th className="px-4 py-3 font-medium">会话 / 轮次</th>
               <th className="px-4 py-3 font-medium">客户问题</th>
-              <th className="px-4 py-3 font-medium">Judge 意图</th>
+              <th className="px-4 py-3 font-medium">Judge 业务分类</th>
               <th className="px-4 py-3 font-medium">分发 (判/金)</th>
               <th className="px-4 py-3 font-medium">解决 (判/金)</th>
               <th className="px-4 py-3 font-medium"></th>
