@@ -29,8 +29,6 @@ def test_mock_judge_rejects_phone_recharge():
     j = mock_judge(s, SEC)
     assert j["intent_pred"] == "拒识"
     assert j["should_dispatch_to_bu"] is False  # 拒识 → 不该证券承接
-    assert j["factual_verifiable"] is False  # 无 KB 不判事实
-    assert j["factual_correct"] is None
 
 
 def test_mock_judge_securities_business():

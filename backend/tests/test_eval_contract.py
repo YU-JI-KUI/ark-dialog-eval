@@ -31,9 +31,6 @@ def test_judge_output_schema_roundtrip():
         "answer_resolved": "yes",
         "resolved_reason": "答案给了具体数字,用户未重问",
         "unresolved_cause": "",
-        "factual_verifiable": False,
-        "factual_correct": None,
-        "compliance_flag": False,
         "needs_human_review": False,
         "review_reason": "",
     }, ensure_ascii=False) + "\n```"
@@ -43,7 +40,7 @@ def test_judge_output_schema_roundtrip():
     for key in OUTPUT_SCHEMA:
         assert key in parsed, f"模型输出缺少约定字段: {key}"
     assert parsed["answer_resolved"] == "yes"
-    assert parsed["factual_correct"] is None  # 无 KB 不判事实,必须能表达 null
+    assert parsed["needs_human_review"] is False
 
 
 def test_messages_carry_all_judge_inputs():

@@ -6,8 +6,7 @@
 judge_fn 解耦。
 
 核心约束(交接文档第 10 节):
-  - 无知识库 → 事实正确性判不了,factual_verifiable=false、factual_correct=null,
-    绝不让模型瞎判事实;相关/完整/是否解决这些不依赖业务事实的维度可判。
+  - 无知识库 → 不判业务事实正确性,只判相关/完整/是否解决这些不依赖业务事实的维度。
   - 是否解决用下游轨迹补强:用户下一轮重问/不满 → 倾向 no/partial。
   - 意图判别优于生成:让模型判「该问题属于哪个意图」比从零预测稳。
 """
@@ -26,7 +25,7 @@ _TASK_PROMPTS = (
     "task_dispatch.txt",        # 1. 该不该本BU承接(should_dispatch_to_bu)
     "task_business_type.txt",   # 2. 业务分类打标(business_type)
     "task_resolved.txt",        # 3. 是否解决(answer_resolved)
-    "task_factual.txt",         # 4. 事实性 + 需人工复核
+    "task_review.txt",          # 4. 需人工复核(needs_human_review)
 )
 
 
@@ -64,9 +63,6 @@ OUTPUT_SCHEMA = {
     "answer_resolved": "yes/partial/no/unknown:仅当该问题被分到本BU时判,否则填unknown",
     "resolved_reason": "依据:基于相关性/完整性/下游轨迹(用户下一轮),不靠业务对错",
     "unresolved_cause": "没解决时的原因归类(答非所问/信息不全/事实存疑/分发错误),解决了填空串",
-    "factual_verifiable": "true/false:无知识库通常false",
-    "factual_correct": "true/false/null:不可验证给null",
-    "compliance_flag": "true/false",
     "needs_human_review": "true/false",
     "review_reason": "原因或空串",
 }

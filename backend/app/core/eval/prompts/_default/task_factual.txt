@@ -1,2 +1,0 @@
-4. factual_*:无知识库,factual_verifiable=false、factual_correct=null,绝不瞎判业务事实。
-5. needs_human_review:置信低/需核事实/疑似合规/你不确定 → true。

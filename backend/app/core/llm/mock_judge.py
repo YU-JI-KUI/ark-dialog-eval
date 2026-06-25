@@ -79,9 +79,6 @@ def mock_judge(sample: dict, bu: BUConfig) -> dict:
         "answer_resolved": resolved,
         "resolved_reason": resolved_reason,
         "unresolved_cause": unresolved_cause,
-        "factual_verifiable": False,  # 无知识库,绝不瞎判事实
-        "factual_correct": None,
-        "compliance_flag": False,
         "needs_human_review": bool(needs_review),
         "review_reason": "意图置信低或分发存疑" if needs_review else "",
     }
