@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """寿险 BU 领域知识。
 
-业务分类(原意图)清单维护在 `data/life.json`,内网调整分类只改 JSON。
+业务分类(原意图)清单维护在 `prompts/life/categories.json`,内网调整分类只改 JSON。
 本意图体系为按寿险常见业务设计的合理占位,拿到真实分类文档后改 JSON 即可。
 """
 from __future__ import annotations
@@ -40,7 +40,6 @@ LIFE = BUConfig(
     # 日志「分发BU」列里代表寿险的取值。拿到真实日志后按实际值补充。
     dispatch_aliases=("寿险", "人寿"),
     intents=_INTENTS,
-    judge_persona="你是平安寿险对话系统的评测专家,只依据给定信息客观判断,不臆测业务事实。",
     mock_intent_rules=_MOCK_RULES,
     mock_module_map=_MODULE_MAP,
     sample_calib="life_dialog_calib.xlsx",

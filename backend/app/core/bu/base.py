@@ -14,16 +14,18 @@ import json
 from dataclasses import dataclass, field
 from pathlib import Path
 
-_DATA_DIR = Path(__file__).resolve().parent / "data"
+# 业务分类定义放在 prompts/<bu>/categories.json —— 它本质是喂给模型的上下文,
+# 与判定规则、人设统一收口在 prompts 目录。
+_PROMPTS_DIR = Path(__file__).resolve().parent.parent / "eval" / "prompts"
 
 
 def load_categories(code: str) -> dict[str, str]:
-    """从 data/<code>.json 读业务分类,返回 {分类名: definition}。
+    """从 prompts/<code>/categories.json 读业务分类,返回 {分类名: definition}。
 
-    业务分类抽到独立 JSON,内网调整分类只改 JSON 不动代码。
+    业务分类是喂给模型的上下文,统一放 prompts 目录,内网调整分类只改 JSON。
     JSON 结构:{"categories": {"分类名": {"definition": "..."}}}。
     """
-    path = _DATA_DIR / f"{code}.json"
+    path = _PROMPTS_DIR / code / "categories.json"
     data = json.loads(path.read_text(encoding="utf-8"))
     return {name: c["definition"] for name, c in data["categories"].items()}
 
@@ -42,9 +44,6 @@ class BUConfig:
 
     # 业务分类体系:分类名 -> 定义/示例。Judge 的分类标签集。
     intents: dict[str, str] = field(default_factory=dict)
-
-    # Judge 的系统角色话术(各 BU 专家身份不同)
-    judge_persona: str = "你是对话系统的评测专家,只依据给定信息客观判断,不臆测业务事实。"
 
     # Mock 规则桩用的关键词规则(仅 mock 后端用,真实模型不需要):
     #   mock_intent_rules: [(关键词列表, 意图), ...],顺序敏感,先具体后宽泛
@@ -75,5 +74,13 @@ class BUConfig:
         return [{"intent": k, "definition": v} for k, v in self.intents.items()]
 
     def intents_block(self) -> str:
-        """拼成 Judge prompt 里的意图清单文本。"""
-        return "\n".join(f"  - {k}:{v}" for k, v in self.intents.items())
+        """渲染成 markdown 表格喂给模型(Qwen 对 table 结构更易理解)。
+
+        分类名/定义里的 | 转义,避免破坏表格列。
+        """
+        def esc(s: str) -> str:
+            return str(s).replace("|", "\\|").replace("\n", " ")
+
+        lines = ["| 业务分类 | 定义 |", "| --- | --- |"]
+        lines += [f"| {esc(k)} | {esc(v)} |" for k, v in self.intents.items()]
+        return "\n".join(lines)

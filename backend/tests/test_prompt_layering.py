@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """提示词按 BU 分层:<bu_code>/ 优先,_default/ 回退。"""
-from app.core.eval.judge import _load_task, build_messages
+from app.core.eval.prompt_loader import load_bu_prompt
+from app.core.eval.judge import build_messages
 from app.core.bu.securities import SECURITIES as SEC
 from app.core.bu.life_insurance import LIFE
 
@@ -13,21 +14,21 @@ def _sample():
 
 
 def test_bu_specific_overrides_default():
-    # 证券有专属 task_dispatch.txt → 用证券版(含 SOP 字样)
-    sec_dispatch = _load_task("securities", "task_dispatch.txt")
+    # 证券有专属 task_dispatch.md → 用证券版(含 SOP 字样)
+    sec_dispatch = load_bu_prompt("securities", "task_dispatch.md")
     assert "证券承接 SOP" in sec_dispatch
 
 
 def test_falls_back_to_default():
-    # 寿险无专属 task_dispatch.txt → 回退通用版(不含证券 SOP)
-    life_dispatch = _load_task("life", "task_dispatch.txt")
+    # 寿险无专属 task_dispatch.md → 回退通用版(不含证券 SOP)
+    life_dispatch = load_bu_prompt("life", "task_dispatch.md")
     assert "证券承接 SOP" not in life_dispatch
     assert "should_dispatch_to_bu" in life_dispatch
 
 
 def test_unknown_bu_uses_default():
     # 不存在的 BU 目录也安全回退到 _default
-    out = _load_task("nonexistent_bu", "task_resolved.txt")
+    out = load_bu_prompt("nonexistent_bu", "task_resolved.md")
     assert "answer_resolved" in out
 
 

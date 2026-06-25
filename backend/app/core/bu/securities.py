@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 """证券 BU 领域知识。
 
-业务分类(原意图)清单维护在 `data/securities.json`,内网调整分类只改 JSON。
-本文件只保留:dispatch_aliases(分发BU列取值)、judge_persona、mock 规则、样例文件名。
+业务分类(原意图)清单维护在 `prompts/securities/categories.json`,内网调整分类只改 JSON。
+本文件只保留:dispatch_aliases(分发BU列取值)、mock 规则、样例文件名。
+评测人设/判定规则在 prompts/<bu>/ 下维护。
 """
 from __future__ import annotations
 
@@ -44,7 +45,6 @@ SECURITIES = BUConfig(
     # 日志「分发BU」列里代表证券的取值。拿到真实日志后按实际值补充(如英文代码)。
     dispatch_aliases=("证券", "证券业务"),
     intents=_INTENTS,
-    judge_persona="你是平安证券对话系统的评测专家,只依据给定信息客观判断,不臆测业务事实。",
     mock_intent_rules=_MOCK_RULES,
     mock_module_map=_MODULE_MAP,
     sample_calib="pa_dialog_eval_sample.xlsx",

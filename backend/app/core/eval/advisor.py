@@ -17,6 +17,7 @@ from __future__ import annotations
 import json
 
 from app.core.bu.base import BUConfig
+from app.core.eval.prompt_loader import load_bu_prompt
 
 # 规则版阈值:解决率低于此判为需优化
 _LOW_RESOLVED = 0.6
@@ -26,11 +27,12 @@ _MIN_SAMPLES = 3  # 样本太少不下结论
 
 
 def build_advice_prompt(insights: dict, bu: BUConfig, bu_dispatch: dict | None = None) -> list[dict]:
-    """构造给大模型的消息:把聚合指标 + 失败样例喂进去。"""
-    system = (
-        f"你是平安{bu.name}智能问答系统的优化顾问。基于给定的评测聚合指标和失败样例,"
-        "给出有针对性、可落地的优化建议,只依据数据,不臆测。"
-    )
+    """构造给大模型的消息:把聚合指标 + 失败样例填进外置模板。
+
+    提示词在 prompts/_default/advice_system.md、advice_user.md(可被 prompts/<bu>/ 重写)。
+    数据准备(payload)在代码里,模板只负责措辞与输出格式。
+    占位符:advice_system 用 {bu_name};advice_user 用 {payload}(下方聚合指标 JSON)。
+    """
     overall = insights["overall"]
     # 只把信息量大的切片喂给模型(进漏斗样本量足够的),控制 token
     slices = [s for s in insights["by_intent"] if s.get("in_bu_count", 0) >= _MIN_SAMPLES]
@@ -48,20 +50,10 @@ def build_advice_prompt(insights: dict, bu: BUConfig, bu_dispatch: dict | None =
             for s in slices
         ],
     }
-    user = f"""下面是一批对话评测的聚合指标(按意图切片):
-
-{json.dumps(payload, ensure_ascii=False, indent=2)}
-
-请找出最需要优化的 3-5 个点,每个点给出:
-- scope: 作用域(具体业务分类 / 全局)
-- severity: high/medium/low
-- problem: 一句话问题
-- root_cause: 根因(分发问题/答案问题/数据问题/需人工 之一)
-- suggestion: 具体可落地的优化动作(如:补该意图标问、调分发阈值、补知识库、转人工兜底)
-- evidence: 支撑数字
-
-只输出 JSON 数组,形如:
-[{{"scope":"...","severity":"high","problem":"...","root_cause":"...","suggestion":"...","evidence":"..."}}]"""
+    system = load_bu_prompt(bu.code, "advice_system.md").replace("{bu_name}", bu.name)
+    user = load_bu_prompt(bu.code, "advice_user.md").replace(
+        "{payload}", json.dumps(payload, ensure_ascii=False, indent=2)
+    )
     return [{"role": "system", "content": system}, {"role": "user", "content": user}]
 
 

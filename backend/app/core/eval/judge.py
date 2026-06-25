@@ -13,42 +13,17 @@ judge_fn 解耦。
 from __future__ import annotations
 
 import json
-from functools import lru_cache
-from pathlib import Path
 
 from app.core.bu.base import BUConfig
-
-PROMPTS_DIR = Path(__file__).resolve().parent / "prompts"
+from app.core.eval.prompt_loader import load_bu_prompt, load_prompt
 
 # 各评测维度的判定规则文件,按此顺序拼进【任务】块。调某维度只改对应文件。
 _TASK_PROMPTS = (
-    "task_dispatch.txt",        # 1. 该不该本BU承接(should_dispatch_to_bu)
-    "task_business_type.txt",   # 2. 业务分类打标(business_type)
-    "task_resolved.txt",        # 3. 是否解决(answer_resolved)
-    "task_review.txt",          # 4. 需人工复核(needs_human_review)
+    "task_dispatch.md",        # 1. 该不该本BU承接(should_dispatch_to_bu)
+    "task_business_type.md",   # 2. 业务分类打标(business_type)
+    "task_resolved.md",        # 3. 是否解决(answer_resolved)
+    "task_review.md",          # 4. 需人工复核(needs_human_review)
 )
-
-
-@lru_cache(maxsize=32)
-def _load_prompt(name: str) -> str:
-    """读提示词模板文件(缓存,改文件后需重启生效)。
-
-    判定规则与系统人设外置到 prompts/*.txt,内网可直接改文件、不动代码。
-    """
-    return (PROMPTS_DIR / name).read_text(encoding="utf-8")
-
-
-@lru_cache(maxsize=64)
-def _load_task(bu_code: str, filename: str) -> str:
-    """读某 BU 某维度的判定规则:优先 prompts/<bu_code>/,缺则回退 prompts/_default/。
-
-    这样每个 BU 只需写自己有特殊 SOP 的维度(如证券"问题含X则承接"),
-    其余维度自动复用通用版,无需重复维护。
-    """
-    bu_file = PROMPTS_DIR / bu_code / filename
-    if bu_file.exists():
-        return bu_file.read_text(encoding="utf-8")
-    return (PROMPTS_DIR / "_default" / filename).read_text(encoding="utf-8")
 
 # Judge 必须输出的字段及其含义(也作为 prompt 里给模型的输出契约)。
 # 新口径:BU 分发漏斗。分发对错由代码算(should_dispatch_to_bu vs 日志分发BU),
@@ -86,7 +61,7 @@ def build_messages(sample: dict, bu: BUConfig) -> list[dict]:
     ctx = "\n".join(ctx_lines) or "    (无前文,这是首轮)"
     # 各评测维度的判定规则按 BU 拆分(<bu_code>/ 优先,_default/ 回退),
     # 按 _TASK_PROMPTS 顺序拼进【任务】块。改某 BU 某维度只动对应文件。
-    tasks = "".join(_load_task(bu.code, f) for f in _TASK_PROMPTS)
+    tasks = "".join(load_bu_prompt(bu.code, f) for f in _TASK_PROMPTS)
     # 从外置模板填空(用 replace 而非 format,避免与模板内 JSON 的花括号冲突)
     fields = {
         "{intents}": intents,
@@ -101,11 +76,11 @@ def build_messages(sample: dict, bu: BUConfig) -> list[dict]:
         "{tasks}": tasks,
         "{output_schema}": json.dumps(OUTPUT_SCHEMA, ensure_ascii=False, indent=2),
     }
-    user = _load_prompt("judge_user.txt")
+    user = load_prompt("judge_user.md")
     for k, v in fields.items():
         user = user.replace(k, v)
-    # system 优先用 BU 自带人设(证券/寿险不同),BU 未配则回退到外置默认人设
-    system = bu.judge_persona or _load_prompt("judge_system.txt")
+    # system 人设走 prompts/<bu>/judge_system.md,缺则回退 prompts/_default/judge_system.md
+    system = load_bu_prompt(bu.code, "judge_system.md")
     return [
         {"role": "system", "content": system},
         {"role": "user", "content": user},
