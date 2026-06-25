@@ -1,12 +1,14 @@
 # 本次改动清单，由 sync_single.py 自动生成
 # 普通行 = 复制到内网；[DEL] 开头 = 在内网删除该文件
-# 基于 origin/master @ 462fd0cd
+# 基于 origin/master @ e14a879e
 # 涉及 commit（动作以 origin/master 为准：存在=复制、不存在=删除）:
-#   462fd0cd 修复业务分类全空 + 分发场景标签 + 提示词外置
+#   e14a879e 评估报告/逐条明细下载 + 精简提示词输入
+backend/app/api/routes.py
+backend/app/config.py
 backend/app/core/eval/judge.py
-backend/app/core/eval/prompts/judge_system.txt
 backend/app/core/eval/prompts/judge_user.txt
-backend/app/services/evaluator.py
-backend/tests/test_modes_and_insights.py
-frontend/src/components/DetailDrawer.jsx
-frontend/src/components/RowsTable.jsx
+backend/app/core/llm/judge_runner.py
+backend/app/main.py
+backend/app/services/task_manager.py
+frontend/src/App.jsx
+frontend/src/api/client.js
