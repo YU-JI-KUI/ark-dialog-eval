@@ -1,14 +1,8 @@
 # 本次改动清单，由 sync_single.py 自动生成
 # 普通行 = 复制到内网；[DEL] 开头 = 在内网删除该文件
-# 基于 origin/master @ e14a879e
+# 基于 origin/master @ 2751d7d1
 # 涉及 commit（动作以 origin/master 为准：存在=复制、不存在=删除）:
-#   e14a879e 评估报告/逐条明细下载 + 精简提示词输入
-backend/app/api/routes.py
-backend/app/config.py
-backend/app/core/eval/judge.py
-backend/app/core/eval/prompts/judge_user.txt
-backend/app/core/llm/judge_runner.py
-backend/app/main.py
-backend/app/services/task_manager.py
+#   2751d7d1 新增历史评测记录入口
 frontend/src/App.jsx
 frontend/src/api/client.js
+frontend/src/components/HistoryPanel.jsx
