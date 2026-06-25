@@ -61,7 +61,7 @@ def build_messages(sample: dict, bu: BUConfig) -> list[dict]:
     ctx = "\n".join(ctx_lines) or "    (无前文,这是首轮)"
     # 各评测维度的判定规则按 BU 拆分(<bu_code>/ 优先,_default/ 回退),
     # 按 _TASK_PROMPTS 顺序拼进【任务】块。改某 BU 某维度只动对应文件。
-    tasks = "".join(load_bu_prompt(bu.code, f) for f in _TASK_PROMPTS)
+    tasks = "\n\n".join(load_bu_prompt(bu.code, f).strip() for f in _TASK_PROMPTS)
     # 从外置模板填空(用 replace 而非 format,避免与模板内 JSON 的花括号冲突)
     fields = {
         "{intents}": intents,
