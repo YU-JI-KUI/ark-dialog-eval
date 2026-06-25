@@ -1,35 +1,13 @@
 # 本次改动清单，由 sync_single.py 自动生成
 # 普通行 = 复制到内网；[DEL] 开头 = 在内网删除该文件
-# 基于 origin/master @ a4208f1b
+# 基于 origin/master @ ce7a17ed
 # 涉及 commit（动作以 origin/master 为准：存在=复制、不存在=删除）:
-#   a4208f1b 提示词统一收口到 prompts 目录
-backend/app/core/bu/base.py
-backend/app/core/bu/life_insurance.py
-backend/app/core/bu/securities.py
-backend/app/core/eval/advisor.py
+#   ce7a17ed 格式化提示词 md,提升可读性
 backend/app/core/eval/judge.py
-backend/app/core/eval/prompt_loader.py
-backend/app/core/eval/prompts/README.md
-backend/app/core/eval/prompts/_default/advice_system.md
 backend/app/core/eval/prompts/_default/advice_user.md
-backend/app/core/eval/prompts/_default/judge_system.md
 backend/app/core/eval/prompts/_default/task_business_type.md
 backend/app/core/eval/prompts/_default/task_dispatch.md
 backend/app/core/eval/prompts/_default/task_resolved.md
 backend/app/core/eval/prompts/_default/task_review.md
 backend/app/core/eval/prompts/judge_user.md
-backend/app/core/eval/prompts/life/categories.json
-backend/app/core/eval/prompts/life/judge_system.md
-backend/app/core/eval/prompts/securities/categories.json
-backend/app/core/eval/prompts/securities/judge_system.md
 backend/app/core/eval/prompts/securities/task_dispatch.md
-backend/tests/test_prompt_layering.py
-[DEL] backend/app/core/bu/data/life.json
-[DEL] backend/app/core/bu/data/securities.json
-[DEL] backend/app/core/eval/prompts/_default/task_business_type.txt
-[DEL] backend/app/core/eval/prompts/_default/task_dispatch.txt
-[DEL] backend/app/core/eval/prompts/_default/task_resolved.txt
-[DEL] backend/app/core/eval/prompts/_default/task_review.txt
-[DEL] backend/app/core/eval/prompts/judge_system.txt
-[DEL] backend/app/core/eval/prompts/judge_user.txt
-[DEL] backend/app/core/eval/prompts/securities/task_dispatch.txt
