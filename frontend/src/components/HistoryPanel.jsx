@@ -3,6 +3,7 @@ import { X, History, Building2, FileSpreadsheet, Clock, Loader2 } from 'lucide-r
 import clsx from 'clsx'
 import { Badge } from './ui'
 import { api } from '../api/client'
+import { formatTime } from '../utils/format'
 
 // 历史评测记录:从 SQLite 拉所有任务,点击加载该次结果
 export default function HistoryPanel({ open, onClose, onSelect }) {
@@ -69,7 +70,7 @@ export default function HistoryPanel({ open, onClose, onSelect }) {
                   {t.mode === 'calibration' ? '校准' : '生产'}
                 </Badge>
                 <span className="inline-flex items-center gap-1">
-                  <Clock size={12} />{fmtTime(t.finished_at || t.created_at)}
+                  <Clock size={12} />{formatTime(t.finished_at || t.created_at)}
                 </span>
               </div>
             </button>
@@ -78,10 +79,4 @@ export default function HistoryPanel({ open, onClose, onSelect }) {
       </aside>
     </>
   )
-}
-
-function fmtTime(s) {
-  if (!s) return '—'
-  // 后端存的是 ISO 串,截到分钟显示
-  return String(s).replace('T', ' ').slice(0, 16)
 }
