@@ -23,6 +23,7 @@ export const api = {
       .then((r) => r.data)
   },
 
+  listTasks: () => http.get('/eval/tasks').then((r) => r.data.tasks),
   getTask: (id) => http.get(`/eval/tasks/${id}`).then((r) => r.data),
   getResult: (id) => http.get(`/eval/tasks/${id}/result`).then((r) => r.data),
   resume: (id) => http.post(`/eval/tasks/${id}/resume`).then((r) => r.data),

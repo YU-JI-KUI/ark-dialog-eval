@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import {
   Activity, Database, Download, RotateCcw, AlertTriangle, CheckCircle2, Cpu,
-  ShieldCheck, TrendingUp, Building2,
+  ShieldCheck, TrendingUp, Building2, History,
 } from 'lucide-react'
 import clsx from 'clsx'
 import { api } from './api/client'
@@ -13,6 +13,7 @@ import IntentCharts from './components/IntentCharts'
 import RowsTable from './components/RowsTable'
 import InsightsPanel from './components/InsightsPanel'
 import AdvicePanel from './components/AdvicePanel'
+import HistoryPanel from './components/HistoryPanel'
 
 export default function App() {
   const [config, setConfig] = useState(null)
@@ -22,6 +23,7 @@ export default function App() {
   const [result, setResult] = useState(null)
   const [error, setError] = useState(null)
   const [resumable, setResumable] = useState(null)
+  const [historyOpen, setHistoryOpen] = useState(false)
   const pollRef = useRef(null)
 
   useEffect(() => {
@@ -95,9 +97,26 @@ export default function App() {
     setView('upload'); setResult(null); setTask(null); setError(null); setResumable(null)
   }
 
+  // 从历史记录加载某次评测结果(SQLite 里取,刷新后也能找回)
+  const loadHistory = async (taskId) => {
+    try {
+      setError(null)
+      setHistoryOpen(false)
+      const [r, t] = await Promise.all([api.getResult(taskId), api.getTask(taskId)])
+      setResult(r); setTask(t); setView('result')
+    } catch (e) {
+      setError(e?.response?.data?.detail || e.message)
+    }
+  }
+
   return (
     <div className="min-h-full">
-      <NavBar config={config} onReset={reset} showReset={view === 'result'} />
+      <NavBar
+        config={config}
+        onReset={reset}
+        showReset={view === 'result'}
+        onHistory={() => setHistoryOpen(true)}
+      />
 
       <main className="mx-auto max-w-7xl px-6 py-8">
         {error && (
@@ -118,11 +137,13 @@ export default function App() {
         {view === 'running' && task && <RunProgress task={task} />}
         {view === 'result' && result && <ResultView result={result} task={task} />}
       </main>
+
+      <HistoryPanel open={historyOpen} onClose={() => setHistoryOpen(false)} onSelect={loadHistory} />
     </div>
   )
 }
 
-function NavBar({ config, onReset, showReset }) {
+function NavBar({ config, onReset, showReset, onHistory }) {
   const active = config?.active_backend
   const isMock = active === 'mock'
   return (
@@ -145,6 +166,12 @@ function NavBar({ config, onReset, showReset }) {
               {isMock ? 'Mock 规则桩' : '平安大模型'}
             </span>
           </div>
+          <button
+            onClick={onHistory}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-ink-850 px-3 py-1.5 text-xs font-medium text-slate-300 transition hover:border-brand-500/50 hover:text-brand-300"
+          >
+            <History size={13} />历史记录
+          </button>
           {showReset && (
             <button
               onClick={onReset}
