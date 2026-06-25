@@ -1,15 +1,14 @@
 # 本次改动清单，由 sync_single.py 自动生成
 # 普通行 = 复制到内网；[DEL] 开头 = 在内网删除该文件
-# 基于 origin/master @ 238eeec1
+# 基于 origin/master @ af5ce904
 # 涉及 commit（动作以 origin/master 为准：存在=复制、不存在=删除）:
-#   238eeec1 提示词按 BU 分层 + 前端时间格式统一
+#   af5ce904 精简事实性维度,只保留人工复核
+README.md
 backend/app/core/eval/judge.py
-backend/app/core/eval/prompts/_default/task_business_type.txt
-backend/app/core/eval/prompts/_default/task_dispatch.txt
-backend/app/core/eval/prompts/_default/task_factual.txt
-backend/app/core/eval/prompts/_default/task_resolved.txt
-backend/app/core/eval/prompts/judge_user.txt
-backend/app/core/eval/prompts/securities/task_dispatch.txt
-backend/tests/test_prompt_layering.py
-frontend/src/components/HistoryPanel.jsx
-frontend/src/utils/format.js
+backend/app/core/eval/prompts/_default/task_review.txt
+backend/app/core/llm/mock_judge.py
+backend/tests/test_eval_contract.py
+backend/tests/test_metrics_and_judge.py
+skill/dialog-eval/SKILL.md
+skill/dialog-eval/reference/life_rubric.md
+[DEL] backend/app/core/eval/prompts/_default/task_factual.txt
