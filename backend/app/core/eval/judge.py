@@ -54,8 +54,7 @@ OUTPUT_SCHEMA = {
 def build_messages(sample: dict, bu: BUConfig) -> list[dict]:
     """根据一条样本 + BU 领域知识构造 chat messages。
 
-    sample 期望字段:question / context / dispatched_intent / dispatch_reason /
-    answer_text(原文) / next_user_turn。
+    sample 期望字段:question / context / answer_text(原文) / next_user_turn。
     bu 提供意图清单与评测专家身份(证券/寿险不同)。
     """
     intents = bu.intents_block()
@@ -73,8 +72,6 @@ def build_messages(sample: dict, bu: BUConfig) -> list[dict]:
         "{intents}": intents,
         "{question}": str(sample["question"]),
         "{ctx}": ctx,
-        "{dispatched_intent}": str(sample.get("dispatched_intent", "(未知)")),
-        "{dispatch_reason}": str(sample.get("dispatch_reason", "(无)")),
         "{answer_text}": str(sample.get("answer_text", "(空)")),
         "{next_user_turn}": str(sample.get("next_user_turn") or "(无/会话结束)"),
         "{dispatched_flag}": (

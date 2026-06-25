@@ -179,11 +179,28 @@ function ResultView({ result, task }) {
   const pct = (v) => `${Math.round((v || 0) * 100)}%`
   return (
     <div className="space-y-8">
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="inline-flex items-center gap-1.5 rounded-full border border-brand-500/30 bg-brand-500/10 px-3 py-1 text-xs font-medium text-brand-300">
-          <Building2 size={13} />{result.bu_name} BU
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="inline-flex items-center gap-1.5 rounded-full border border-brand-500/30 bg-brand-500/10 px-3 py-1 text-xs font-medium text-brand-300">
+            <Building2 size={13} />{result.bu_name} BU
+          </div>
+          <ModeBadge mode={result.mode} />
         </div>
-        <ModeBadge mode={result.mode} />
+        {/* 下载:完整报告(多sheet) + 逐条明细(全字段),两种模式都可用 */}
+        <div className="flex items-center gap-2">
+          <a
+            href={api.exportReportUrl(task.task_id)}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3.5 py-2 text-xs font-medium text-white transition hover:bg-brand-500"
+          >
+            <Download size={14} />下载评估报告
+          </a>
+          <a
+            href={api.exportRowsUrl(task.task_id)}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-ink-800 px-3.5 py-2 text-xs font-medium text-slate-200 transition hover:border-brand-500/50 hover:text-brand-300"
+          >
+            <Download size={14} />下载逐条明细
+          </a>
+        </div>
       </div>
 
       {/* 概览统计:BU 分发准确率 + 端到端解决率(漏斗口径) */}

@@ -42,6 +42,8 @@ async def _judge_strong(sample: dict, bu: BUConfig) -> dict:
         response_format={"type": "json_object"},
     )
     content = extract_content(resp)
+    # 打印模型解析前的最原始返回,便于排查脏格式/截断(开 DEBUG 级别可见)
+    logger.debug("模型原始返回 row=%s: %s", sample.get("row_index"), content)
     return parse_judge_output(content)
 
 

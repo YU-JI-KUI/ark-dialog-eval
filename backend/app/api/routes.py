@@ -113,16 +113,33 @@ async def resume_task(task_id: str):
     return task_manager.get(task_id)
 
 
+_XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+
+
 @router.get("/eval/tasks/{task_id}/export")
 async def export_disagreements(task_id: str):
     path = task_manager.export_disagreements(task_id)
     if not path:
         raise HTTPException(404, "无可导出结果")
-    return FileResponse(
-        path,
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        filename=path.name,
-    )
+    return FileResponse(path, media_type=_XLSX_MIME, filename=path.name)
+
+
+@router.get("/eval/tasks/{task_id}/export/rows")
+async def export_rows(task_id: str):
+    """逐条评测明细全量导出(两种模式都可用)。"""
+    path = task_manager.export_rows(task_id)
+    if not path:
+        raise HTTPException(404, "无可导出结果")
+    return FileResponse(path, media_type=_XLSX_MIME, filename=path.name)
+
+
+@router.get("/eval/tasks/{task_id}/export/report")
+async def export_report(task_id: str):
+    """完整评估报告导出(概览/分发漏斗/洞察/建议 多 sheet)。"""
+    path = task_manager.export_report(task_id)
+    if not path:
+        raise HTTPException(404, "无可导出结果")
+    return FileResponse(path, media_type=_XLSX_MIME, filename=path.name)
 
 
 @router.get("/meta/bus")

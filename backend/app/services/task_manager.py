@@ -110,7 +110,6 @@ class TaskManager:
                 "会话ID": r["session"],
                 "轮次": r["turn"],
                 "客户问题": r["question"],
-                "系统分发": r["dispatched_intent"],
                 "Judge意图": r["j_intent"],
                 "Judge分发判定": r["j_dispatch"],
                 "金标-分发是否正确": r["gold"].get("dispatch", ""),
@@ -121,13 +120,115 @@ class TaskManager:
                 "需人工复核": j.get("needs_human_review", ""),
             })
         columns = [
-            "会话ID", "轮次", "客户问题", "系统分发", "Judge意图", "Judge分发判定",
+            "会话ID", "轮次", "客户问题", "Judge意图", "Judge分发判定",
             "金标-分发是否正确", "Judge解决度", "金标-答案是否解决", "Judge理由",
             "答案文本", "需人工复核",
         ]
         df = pd.DataFrame(records, columns=columns)
         out = settings.outputs_dir / f"不一致case_{task_id}.xlsx"
         df.to_excel(out, index=False)
+        return out
+
+    def export_rows(self, task_id: str) -> Optional[Path]:
+        """逐条评测明细全量导出 Excel:每条一行,含模型完整判断 + 答案原文。"""
+        result = store.load_result(task_id)
+        if not result:
+            return None
+        records: list[dict[str, Any]] = []
+        for r in result.get("rows", []):
+            j = r["judge"] if isinstance(r["judge"], dict) else {}
+            records.append({
+                "会话ID": r["session"],
+                "轮次": r["turn"],
+                "客户问题": r["question"],
+                "业务分类": r["j_intent"],
+                "分发场景": r.get("dispatch_scene", ""),       # 正常/该拒未拒/该分未分
+                "AI判该本BU接": j.get("should_dispatch_to_bu", ""),
+                "实际分给本BU": r.get("dispatched_to_bu", ""),
+                "分发判定理由": j.get("dispatch_reason", ""),
+                "是否解决": r["j_resolved"],
+                "解决度原值": r.get("j_resolved_raw", ""),
+                "解决度理由": j.get("resolved_reason", ""),
+                "未解决原因": j.get("unresolved_cause", ""),
+                "需人工复核": j.get("needs_human_review", ""),
+                "复核原因": j.get("review_reason", ""),
+                "金标-分发是否正确": r["gold"].get("dispatch", ""),
+                "金标-答案是否解决": r["gold"].get("resolved", ""),
+                "答案原文": r["answer_text"],
+            })
+        columns = [
+            "会话ID", "轮次", "客户问题", "业务分类", "分发场景",
+            "AI判该本BU接", "实际分给本BU", "分发判定理由",
+            "是否解决", "解决度原值", "解决度理由", "未解决原因",
+            "需人工复核", "复核原因",
+            "金标-分发是否正确", "金标-答案是否解决", "答案原文",
+        ]
+        df = pd.DataFrame(records, columns=columns)
+        out = settings.outputs_dir / f"评测明细_{task_id}.xlsx"
+        df.to_excel(out, index=False)
+        return out
+
+    def export_report(self, task_id: str) -> Optional[Path]:
+        """完整评估报告导出 Excel:概览 / BU分发漏斗 / 业务洞察切片 / 优化建议 多 sheet。"""
+        result = store.load_result(task_id)
+        if not result:
+            return None
+        s = result["summary"]
+        disp = s.get("bu_dispatch") or {}
+        overall = result["insights"]["overall"]
+
+        def pct(v):  # 比例转百分比字符串
+            return f"{round((v or 0) * 100, 1)}%"
+
+        overview = [
+            ("业务单元(BU)", s.get("bu_name", "")),
+            ("评测模式", "校准(有人工金标)" if result["mode"] == "calibration" else "生产(无标注)"),
+            ("评测样本数", s.get("total_samples", 0)),
+            ("会话数", s.get("sessions", 0)),
+            ("多轮会话数", s.get("multi_turn_sessions", 0)),
+            ("BU分发准确率", pct(s.get("dispatch_accuracy"))),
+            ("端到端解决率(仅分发到本BU)", pct(s.get("end_to_end_resolved_rate"))),
+            ("需人工复核数", s.get("needs_review", 0)),
+            ("评测出错数", s.get("errors", 0)),
+        ]
+        dispatch = [
+            ("参与评分条数", disp.get("scored", 0)),
+            ("分发判对", disp.get("correct", 0)),
+            ("分发判错", disp.get("wrong", 0)),
+            ("准确率", pct(disp.get("accuracy"))),
+            ("该拒未拒(误收)", disp.get("over_should_reject_but_accepted", 0)),
+            ("该分未分(漏收)", disp.get("miss_should_accept_but_rejected", 0)),
+        ]
+        slices = [
+            {
+                "业务分类": x["name"],
+                "样本量": x["count"],
+                "进漏斗(分发到本BU)": x.get("in_bu_count", 0),
+                "端到端解决率": pct(x.get("resolved_rate")),
+                "需复核率": pct(x.get("needs_review_rate")),
+                "典型未解决问题": "；".join(x.get("unresolved_examples", [])[:3]),
+            }
+            for x in result["insights"]["by_intent"]
+        ]
+        advice = [
+            {
+                "作用域": a.get("scope", ""),
+                "严重度": a.get("severity", ""),
+                "问题": a.get("problem", ""),
+                "根因": a.get("root_cause", ""),
+                "建议动作": a.get("suggestion", ""),
+                "依据": a.get("evidence", ""),
+            }
+            for a in result.get("advice", {}).get("items", [])
+        ]
+
+        out = settings.outputs_dir / f"评估报告_{task_id}.xlsx"
+        with pd.ExcelWriter(out) as writer:
+            pd.DataFrame(overview, columns=["指标", "数值"]).to_excel(writer, sheet_name="概览", index=False)
+            pd.DataFrame(dispatch, columns=["指标", "数值"]).to_excel(writer, sheet_name="BU分发漏斗", index=False)
+            pd.DataFrame(slices).to_excel(writer, sheet_name="业务洞察", index=False)
+            adv_df = pd.DataFrame(advice) if advice else pd.DataFrame([{"说明": "本次无优化建议(指标良好或样本不足)"}])
+            adv_df.to_excel(writer, sheet_name="优化建议", index=False)
         return out
 
 

@@ -26,6 +26,7 @@ class Settings(BaseSettings):
     app_name: str = "Ark 快捷服务评估平台"
     judge_backend: str = "mock"  # mock | pingan
     judge_concurrency: int = 4   # 并发调用大模型的协程数
+    log_level: str = "INFO"      # 设 DEBUG 可看到模型每条的原始返回
 
     # 平安大模型平台(OpenAI 接口,双签名鉴权)
     open_ai_url: str = ""

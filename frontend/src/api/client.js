@@ -27,4 +27,6 @@ export const api = {
   getResult: (id) => http.get(`/eval/tasks/${id}/result`).then((r) => r.data),
   resume: (id) => http.post(`/eval/tasks/${id}/resume`).then((r) => r.data),
   exportUrl: (id) => `/api/eval/tasks/${id}/export`,
+  exportReportUrl: (id) => `/api/eval/tasks/${id}/export/report`,
+  exportRowsUrl: (id) => `/api/eval/tasks/${id}/export/rows`,
 }
