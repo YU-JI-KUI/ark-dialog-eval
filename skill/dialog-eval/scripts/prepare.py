@@ -11,7 +11,7 @@
 
 输出:JSON,含 mode(校准/生产)、filter_stats、samples[]。
 每个 sample 带:row_index/session/turn/question/context/next_user_turn/
-dispatched_intent/answer_text(原文)/gold。
+dispatched_bu/dispatched_to_bu/answer_text(原文)/gold。
 依赖:pandas, openpyxl。
 """
 from __future__ import annotations
@@ -29,10 +29,7 @@ COLS = {
     "turn": ["客户咨询轮次"],
     "session": ["应用会话ID"],
     "answer": ["答案"],
-    "sys_intent": ["模型意图"],
-    "agent_class": ["智能体分类"],
     "dispatch_bu": ["分发BU"],
-    "dispatch_reason": ["分发BU理由", "分发理由"],
     "gold_dispatch": ["分发是否正确"],
     "gold_oneclick": ["一键场景分发是否正确"],
     "gold_resolved": ["答案是否解决客户问题"],
@@ -89,8 +86,6 @@ def prepare(path: str, limit: int | None = None, bu_name: str = "证券",
         sess = row[m["session"]]
         prior = df[(df[m["session"]] == sess) & (df["_turn_n"] < row["_turn_n"])]
         nxt = df[(df[m["session"]] == sess) & (df["_turn_n"] > row["_turn_n"])]
-        # 答案不做代码解析:格式无法穷举,硬解会崩。原文(JSON+标签)直接给 LLM 读。
-        dispatched = (row.get(m["sys_intent"], "") if "sys_intent" in m else "") or "(未知)"
         # 上下文 = 前文每一轮的「用户问 + AI 答原文」(不解析)。
         context = [
             {
@@ -116,8 +111,6 @@ def prepare(path: str, limit: int | None = None, bu_name: str = "证券",
             "question": row[m["question"]],
             "context": context,
             "next_user_turn": (nxt.iloc[0][m["question"]] if len(nxt) else None),
-            "dispatched_intent": dispatched,
-            "dispatch_reason": (row.get(m["dispatch_reason"], "") if "dispatch_reason" in m else ""),
             "dispatched_bu": dbu,                      # 日志原始「分发BU」值
             "dispatched_to_bu": dispatched_to_bu,      # 日志是否把这条分给了本 BU
             "target_bu": bu_name,

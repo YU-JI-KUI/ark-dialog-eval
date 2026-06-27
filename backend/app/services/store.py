@@ -1,135 +1,172 @@
 # -*- coding: utf-8 -*-
-"""SQLite 持久化层:任务元数据 + 逐条评测结果。
+"""PostgreSQL 持久化层:任务元数据 + 逐条评测结果。
 
-为什么用 SQLite:单文件、内网零依赖、3万行量级可靠。逐条结果落盘后,
-任务跑一半中断可断点续跑(只补未完成的行)。
+用 SQLAlchemy 2.0 + psycopg2(与 datapulse 同栈,便于将来合并)。逐条结果落盘后,
+任务跑一半中断可断点续跑(只补未完成的行)。JSON 列用 JSONB(可查询/索引)。
 
-表结构:
-  tasks      : 任务元数据与进度(每个评测任务一行)
-  task_rows  : 逐条评测结果(task_id + row_index 唯一)
+表(t_ 前缀 + eval_ 命名空间,避免与 datapulse 撞名):
+  t_eval_task      : 任务元数据与进度(每个评测任务一行)
+  t_eval_task_row  : 逐条评测结果(task_id + row_index 唯一)
 
-注:对单机演示与内网单副本足够。多副本需换成共享 DB,接口不变。
+对外暴露的函数签名与原 SQLite 版完全一致,上层(evaluator/task_manager)零改动。
 """
 from __future__ import annotations
 
-import json
-import sqlite3
-import threading
 import time
-from pathlib import Path
 from typing import Any, Optional
+
+from sqlalchemy import (
+    BigInteger,
+    Column,
+    Float,
+    Integer,
+    String,
+    Text,
+    create_engine,
+    select,
+)
+from sqlalchemy.dialects.postgresql import JSONB, insert as pg_insert
+from sqlalchemy.orm import declarative_base, sessionmaker
 
 from app.config import settings
 
-_DB_PATH = settings.outputs_dir / "eval.db"
-_lock = threading.Lock()  # SQLite 写串行化,避免并发写锁冲突
+Base = declarative_base()
 
 
-def _conn() -> sqlite3.Connection:
-    c = sqlite3.connect(_DB_PATH, timeout=30)
-    c.row_factory = sqlite3.Row
-    c.execute("PRAGMA journal_mode=WAL")  # 并发读友好
-    return c
+class EvalTask(Base):
+    """t_eval_task — 评测任务元数据与进度。"""
+
+    __tablename__ = "t_eval_task"
+
+    task_id        = Column(String(64), primary_key=True)
+    filename       = Column(Text)
+    file_path      = Column(Text)
+    bu             = Column(String(64))
+    status         = Column(String(32))
+    stage          = Column(String(64))
+    mode           = Column(String(32))
+    progress_done  = Column(Integer, default=0)
+    progress_total = Column(Integer, default=0)
+    created_at     = Column(Float)
+    finished_at    = Column(Float)
+    error          = Column(Text)
+    result_json    = Column(JSONB)
+
+
+class EvalTaskRow(Base):
+    """t_eval_task_row — 逐条评测结果(断点续跑的依据)。"""
+
+    __tablename__ = "t_eval_task_row"
+
+    task_id   = Column(String(64), primary_key=True)
+    row_index = Column(BigInteger, primary_key=True)
+    row_json  = Column(JSONB)
+
+
+_engine = create_engine(settings.db_url, pool_pre_ping=True, pool_size=5, future=True)
+_Session = sessionmaker(bind=_engine, expire_on_commit=False, future=True)
+
+# 任务元数据对外暴露的列(list_tasks 用,不含大字段 result_json)
+_TASK_PUBLIC_COLS = (
+    "task_id", "filename", "bu", "status", "stage", "mode",
+    "progress_done", "progress_total", "created_at", "finished_at", "error",
+)
+# 单任务完整列(get_task 用)
+_TASK_ALL_COLS = _TASK_PUBLIC_COLS + ("file_path", "result_json")
 
 
 def init_db() -> None:
-    with _lock, _conn() as c:
-        c.executescript(
-            """
-            CREATE TABLE IF NOT EXISTS tasks (
-                task_id     TEXT PRIMARY KEY,
-                filename    TEXT,
-                file_path   TEXT,
-                bu          TEXT,
-                status      TEXT,
-                stage       TEXT,
-                mode        TEXT,
-                progress_done  INTEGER DEFAULT 0,
-                progress_total INTEGER DEFAULT 0,
-                created_at  REAL,
-                finished_at REAL,
-                error       TEXT,
-                result_json TEXT
-            );
-            CREATE TABLE IF NOT EXISTS task_rows (
-                task_id   TEXT,
-                row_index INTEGER,
-                row_json  TEXT,
-                PRIMARY KEY (task_id, row_index)
-            );
-            """
-        )
+    Base.metadata.create_all(_engine)
+
+
+def _task_dict(t: EvalTask, cols: tuple) -> dict:
+    return {c: getattr(t, c) for c in cols}
 
 
 def create_task(task_id: str, filename: str, file_path: str, bu: str) -> None:
-    with _lock, _conn() as c:
-        c.execute(
-            "INSERT OR REPLACE INTO tasks(task_id,filename,file_path,bu,status,stage,created_at) "
-            "VALUES(?,?,?,?,?,?,?)",
-            (task_id, filename, file_path, bu, "pending", "", time.time()),
+    with _Session() as s, s.begin():
+        # INSERT ... ON CONFLICT DO UPDATE = 原 SQLite 的 INSERT OR REPLACE
+        stmt = pg_insert(EvalTask).values(
+            task_id=task_id, filename=filename, file_path=file_path, bu=bu,
+            status="pending", stage="", created_at=time.time(),
+        ).on_conflict_do_update(
+            index_elements=["task_id"],
+            set_={"filename": filename, "file_path": file_path, "bu": bu,
+                  "status": "pending", "stage": ""},
         )
+        s.execute(stmt)
 
 
 def update_task(task_id: str, **fields: Any) -> None:
     if not fields:
         return
-    cols = ", ".join(f"{k}=?" for k in fields)
-    with _lock, _conn() as c:
-        c.execute(f"UPDATE tasks SET {cols} WHERE task_id=?", (*fields.values(), task_id))
+    with _Session() as s, s.begin():
+        s.query(EvalTask).filter(EvalTask.task_id == task_id).update(fields)
 
 
 def get_task(task_id: str) -> Optional[dict]:
-    with _conn() as c:
-        r = c.execute("SELECT * FROM tasks WHERE task_id=?", (task_id,)).fetchone()
-    return dict(r) if r else None
+    with _Session() as s:
+        t = s.get(EvalTask, task_id)
+        return _task_dict(t, _TASK_ALL_COLS) if t else None
 
 
 def list_tasks() -> list[dict]:
-    with _conn() as c:
-        rows = c.execute(
-            "SELECT task_id,filename,bu,status,stage,mode,progress_done,progress_total,"
-            "created_at,finished_at,error FROM tasks ORDER BY created_at DESC"
-        ).fetchall()
-    return [dict(r) for r in rows]
+    with _Session() as s:
+        rows = s.execute(
+            select(EvalTask).order_by(EvalTask.created_at.desc())
+        ).scalars().all()
+    return [_task_dict(t, _TASK_PUBLIC_COLS) for t in rows]
 
 
 def save_rows(task_id: str, rows: list[dict]) -> None:
-    """批量落盘逐条结果(断点续跑的依据)。"""
-    with _lock, _conn() as c:
-        c.executemany(
-            "INSERT OR REPLACE INTO task_rows(task_id,row_index,row_json) VALUES(?,?,?)",
-            [(task_id, r["row_index"], json.dumps(r, ensure_ascii=False)) for r in rows],
+    """批量 upsert 逐条结果(断点续跑的依据)。"""
+    if not rows:
+        return
+    payload = [
+        {"task_id": task_id, "row_index": r["row_index"], "row_json": r}
+        for r in rows
+    ]
+    with _Session() as s, s.begin():
+        stmt = pg_insert(EvalTaskRow).values(payload)
+        stmt = stmt.on_conflict_do_update(
+            index_elements=["task_id", "row_index"],
+            set_={"row_json": stmt.excluded.row_json},
         )
+        s.execute(stmt)
 
 
 def done_row_indices(task_id: str) -> set[int]:
     """已落盘的 row_index 集合,用于跳过、断点续跑。"""
-    with _conn() as c:
-        rows = c.execute("SELECT row_index FROM task_rows WHERE task_id=?", (task_id,)).fetchall()
-    return {r["row_index"] for r in rows}
+    with _Session() as s:
+        rows = s.execute(
+            select(EvalTaskRow.row_index).where(EvalTaskRow.task_id == task_id)
+        ).scalars().all()
+    return set(rows)
 
 
 def load_rows(task_id: str) -> list[dict]:
     """读回所有逐条结果(按 row_index 排序)。"""
-    with _conn() as c:
-        rows = c.execute(
-            "SELECT row_json FROM task_rows WHERE task_id=? ORDER BY row_index", (task_id,)
-        ).fetchall()
-    return [json.loads(r["row_json"]) for r in rows]
+    with _Session() as s:
+        rows = s.execute(
+            select(EvalTaskRow.row_json)
+            .where(EvalTaskRow.task_id == task_id)
+            .order_by(EvalTaskRow.row_index)
+        ).scalars().all()
+    return list(rows)
 
 
 def save_result(task_id: str, result: dict) -> None:
-    """落盘聚合结果(指标/洞察/建议等,不含逐条 rows——rows 在 task_rows)。"""
+    """落盘聚合结果(指标/洞察/建议等,不含逐条 rows——rows 在 t_eval_task_row)。"""
     slim = {k: v for k, v in result.items() if k not in ("rows", "disagreements")}
-    update_task(task_id, result_json=json.dumps(slim, ensure_ascii=False))
+    update_task(task_id, result_json=slim)
 
 
 def load_result(task_id: str) -> Optional[dict]:
     t = get_task(task_id)
     if not t or not t.get("result_json"):
         return None
-    result = json.loads(t["result_json"])
-    # rows / disagreements 从 task_rows 读回拼上
+    result = dict(t["result_json"])
+    # rows / disagreements 从 t_eval_task_row 读回拼上
     rows = load_rows(task_id)
     result["rows"] = rows
     result["disagreements"] = [r for r in rows if r.get("is_disagreement")]

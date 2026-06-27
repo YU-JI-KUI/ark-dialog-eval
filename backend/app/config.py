@@ -8,7 +8,9 @@ JUDGE_BACKEND 决定 Judge 用谁:
 from __future__ import annotations
 
 from pathlib import Path
+from urllib.parse import quote as _url_quote
 
+from pydantic import computed_field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BASE_DIR = Path(__file__).resolve().parent.parent  # backend/
@@ -28,6 +30,13 @@ class Settings(BaseSettings):
     judge_concurrency: int = 4   # 并发调用大模型的协程数
     log_level: str = "INFO"      # 设 DEBUG 可看到模型每条的原始返回
 
+    # PostgreSQL 数据库(任务 + 逐条结果持久化;与 datapulse 同栈,便于将来合并)
+    db_host: str = "localhost"
+    db_port: int = 5432
+    db_name: str = "datapulse"
+    db_user: str = "kris"
+    db_password: str = ""
+
     # 平安大模型平台(OpenAI 接口,双签名鉴权)
     open_ai_url: str = ""
     rsa_pk: str = ""
@@ -38,6 +47,13 @@ class Settings(BaseSettings):
     llm_scene_id: str = ""
     llm_timeout: int = 30
     llm_max_retries: int = 3
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def db_url(self) -> str:
+        """SQLAlchemy 连接 URL:postgresql+psycopg2://user:pass@host:port/db(与 datapulse 一致)。"""
+        pw = _url_quote(self.db_password, safe="")
+        return f"postgresql+psycopg2://{self.db_user}:{pw}@{self.db_host}:{self.db_port}/{self.db_name}"
 
     @property
     def uploads_dir(self) -> Path:

@@ -150,8 +150,11 @@ def aggregate(records: list) -> dict:
             "accuracy": _rate(dispatch_correct, n),
             "correct": dispatch_correct,
             "wrong": n - dispatch_correct,
-            "miss_should_accept_but_rejected": miss,
-            "over_should_reject_but_accepted": over,
+            # 四象限场景(与 FastAPI 报告口径一致):
+            #   正常=should==actual / 该分未分(漏)=should且未分给本BU / 该拒未拒(误收)=不该却分了
+            "scene_normal": dispatch_correct,
+            "scene_miss_should_accept_but_rejected": miss,      # 该分未分(漏)
+            "scene_over_should_reject_but_accepted": over,      # 该拒未拒(误收)
         },
         "resolution_funnel": {
             "dispatched_to_bu": len(in_bu),
